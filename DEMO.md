@@ -41,7 +41,8 @@ Set the analyst name (top right). Have a second laptop / recording as backup.
    **Pass-through** evidence card → the timeline shows money arriving at 10:05 and 10:08 and leaving at
    10:11 and 10:12 (held 3–4 min), then ₹2.4 L circling back at 13:30 and out again at 13:34.
 7. **Who else (2:15–2:30).** Case card: 2 origins, relays, sinks, ₹6 L entered, median dwell. Double-click
-   a node to expand the network.
+   a node to expand the network. *Open case* draws the whole ring on one graph; click a member to light up
+   its transactions.
 8. **Decide (2:30–2:45).** Note "Rapid layering confirmed" → **Confirm**. Audit trail updates; the case
    card shows 1 confirmed.
 9. **Knowing when not to flag (2:45–3:15).** Search `AC2207` → not flagged, *possible-victim indicator,

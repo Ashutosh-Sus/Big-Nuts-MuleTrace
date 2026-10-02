@@ -17,6 +17,7 @@ interface Props {
   onSelect?: (id: string) => void;
   onExpand?: (id: string) => void;
   height?: number;
+  expandHint?: string;
 }
 
 const ROLE_SHAPE: Record<string, string> = {
@@ -71,7 +72,8 @@ function buildElements(data: GraphData, showIdentity: boolean): ElementDefinitio
   return els;
 }
 
-export default function GraphView({ data, highlight, theme, showIdentity, onSelect, onExpand, height = 520 }: Props) {
+export default function GraphView({ data, highlight, theme, showIdentity, onSelect, onExpand, height = 520,
+  expandHint = "Double-click to expand" }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const [tip, setTip] = useState<{ x: number; y: number; html: React.ReactNode } | null>(null);
@@ -150,7 +152,7 @@ export default function GraphView({ data, highlight, theme, showIdentity, onSele
           {n.dwell_seconds != null && <div>Median dwell: {duration(n.dwell_seconds)}</div>}
           {n.stopped && <div>Pooled account — attribution stops here</div>}
           {n.status && n.status !== "OPEN" && <div>Analyst: {n.status.toLowerCase()}</div>}
-          <div className="text-muted">Double-click to expand</div>
+          <div className="text-muted">{expandHint}</div>
         </div>) });
     });
     cy.on("mouseover", "edge", (e) => {

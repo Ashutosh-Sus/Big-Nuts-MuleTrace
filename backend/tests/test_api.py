@@ -198,3 +198,95 @@ def test_t21_export_group_item_is_one_row(tmp_path):
     rows = [r for r in export_rows(c) if r["type"] == "group"]
     assert len(rows) == 1 and rows[0]["id"] == groups[0]["id"]
     assert rows[0]["members"].split("; ") == groups[0]["members"]
+
+
+def hero_case(c):
+    return c.get(f"/api/accounts/{HERO['M2']}").json()["cases"][0]
+
+
+def test_case_network_shows_whole_case(client):
+    cid = hero_case(client)
+    detail = client.get(f"/api/cases/{cid}").json()
+    g = client.get(f"/api/cases/{cid}/network").json()
+    assert g["mode"] == "network" and g["case"] == cid and g["focus"] == "" and not g["truncated"]
+    assert {n["id"] for n in g["nodes"]} == {m["id"] for m in detail["members"]}
+    # every case transaction appears once, on the edge between its sender and receiver
+    timeline = {t["txn_id"]: t for t in detail["timeline"]}
+    assert sum(e["count"] for e in g["edges"]) == detail["metrics"]["transactions"] == len(timeline)
+    for e in g["edges"]:
+        assert all((timeline[t]["sender"], timeline[t]["receiver"]) == (e["source"], e["target"]) for t in e["txn_ids"])
+        assert e["total"] == sum(timeline[t]["amount"] for t in e["txn_ids"])
+        assert e["suspicious"]
+    roles = {n["id"]: n["role"] for n in g["nodes"]}
+    assert roles == {m["id"]: m["role"] for m in detail["members"]}
+    assert roles[HERO["V1"]] == "ORIGIN" and roles[HERO["M2"]] == "HUB"
+    assert not any(n["focus"] for n in g["nodes"])
+    assert client.get("/api/cases/CASE-99/network").status_code == 404
+
+
+def test_case_network_reflects_decisions(client):
+    cid = hero_case(client)
+    client.post(f"/api/accounts/{HERO['M1']}/disposition", json={"status": "CONFIRMED", "note": "", "analyst": "a"})
+    g = client.get(f"/api/cases/{cid}/network").json()
+    assert next(n for n in g["nodes"] if n["id"] == HERO["M1"])["status"] == "CONFIRMED"
+
+
+def test_case_network_caps_large_case(tmp_path):
+    s = Scenario("cn").background()
+    s.tx("FUND", "DIST", 12_000_000, at(12, 10))
+    for i in range(110):
+        s.tx("DIST", f"OUT{i:03d}", 108_000, at(12, 10, 5, i))
+    c = TestClient(create_app(db_path=tmp_path / "c.db", autoload_demo=False))
+    assert c.post("/api/datasets", files={"file": ("c.csv", s.csv_bytes(), "text/csv")}).status_code == 200
+    cid = c.get("/api/accounts/DIST").json()["cases"][0]
+    members = c.get(f"/api/cases/{cid}").json()["members"]
+    assert len(members) > 80
+    g = c.get(f"/api/cases/{cid}/network").json()
+    ids = {n["id"] for n in g["nodes"]}
+    assert len(ids) == 80 and g["truncated"] and g["hidden_count"] == len(members) - 80
+    assert {"FUND", "DIST"} <= ids
+    assert all(e["source"] in ids and e["target"] in ids for e in g["edges"])
+    assert connected(ids, g["edges"])
+
+
+def test_case_network_fallback_engine(tmp_path):
+    c = TestClient(create_app(db_path=tmp_path / "w.db", cfg=replace(DEFAULT, engine="window"), autoload_demo=False))
+    assert c.post("/api/datasets", files={"file": ("demo.csv", generate(), "text/csv")}).status_code == 200
+    cases = c.get(f"/api/accounts/{HERO['M2']}").json()["cases"]
+    assert cases
+    for cid in cases:
+        g = c.get(f"/api/cases/{cid}/network").json()
+        assert g["mode"] == "network" and g["nodes"]
+
+
+def connected(nodes: set[str], edges: list[dict]) -> bool:
+    adj = {n: set() for n in nodes}
+    for e in edges:
+        adj[e["source"]].add(e["target"])
+        adj[e["target"]].add(e["source"])
+    seen, stack = set(), [next(iter(nodes))]
+    while stack:
+        a = stack.pop()
+        if a not in seen:
+            seen.add(a)
+            stack.extend(adj[a] - seen)
+    return seen == nodes
+
+
+def test_case_network_large_case_stays_connected(tmp_path):
+    """Over the node cap the drawn part is grown along case transactions, not picked by score alone."""
+    import random
+    names = [f"R{i:03d}" for i in range(120)]
+    random.Random(5).shuffle(names)                     # score / name order unrelated to chain order
+    s = Scenario("cc").background()
+    s.chain(["V"] + names + ["X"], 400_000, at(12, 10), 3)
+    c = TestClient(create_app(db_path=tmp_path / "cc.db", autoload_demo=False))
+    assert c.post("/api/datasets", files={"file": ("cc.csv", s.csv_bytes(), "text/csv")}).status_code == 200
+    big = max((c.get(f"/api/cases/{cid}").json() for cid in
+               {cid for n in names for cid in c.get(f"/api/accounts/{n}").json()["cases"]}),
+              key=lambda d: len(d["members"]))
+    assert len(big["members"]) > 80
+    g = c.get(f"/api/cases/{big['id']}/network").json()
+    ids = {n["id"] for n in g["nodes"]}
+    assert len(ids) == 80 and g["hidden_count"] == len(big["members"]) - 80
+    assert connected(ids, g["edges"])

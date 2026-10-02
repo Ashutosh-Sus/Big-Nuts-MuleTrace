@@ -1,11 +1,26 @@
 # MuleTrace — Status
 
-_Updated after: T21 queue CSV export (build phase after release; core untouched). Nothing pushed._
+_Updated after: T22 case network graph (build phase after release; core untouched). Nothing pushed._
 
 ## Complete
-- T0–T21 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
+- T0–T22 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## T22 — case network graph (no detection change)
+- Gap: the Case page had members and a timeline but no picture of the whole case.
+- `GET /api/cases/{id}/network`: same contract as the account network (mode `network`, no focus) with the case's
+  members, its case transactions aggregated per sender → receiver, case roles (only for a case with a flagged
+  member, §7.2), dispositions and shared-attribute links. Over 80 members the drawn part is grown along case
+  transactions from the best-ranked member (origins, then flagged by score), so it stays connected; picking the
+  top 80 by score alone left 80 unconnected nodes on the 50k-row benchmark's 2 739-member case.
+- `network.py`: identity-link builder extracted into `_identity_edges` (shared; account network output unchanged).
+- Case page: graph above the member table (existing `GraphView` + legend); clicking a node or a member row lights
+  up its transactions and bolds it in the timeline; double-click opens the account. `GraphView` takes an optional
+  tooltip hint (default unchanged).
+- Tests (5): hero case (members, every case transaction once on the right edge, totals, roles, origins / hub),
+  404, decisions shown, cap + connectivity (fan-out and a 120-relay chain with scrambled names), fallback engine.
+- 50k rows, largest case (2 739 members): case network 14 ms, 80 nodes / 79 edges, connected.
 
 ## T21 — queue CSV export (no detection change)
 - `GET /api/export/queue.csv` takes the `/api/queue` filters; both endpoints use one shared filter function, so
@@ -54,14 +69,14 @@ _Updated after: T21 queue CSV export (build phase after release; core untouched)
 - ARCHITECTURE §6.1/§7.1/§7.2/§12 synced with implemented clarifications (no behaviour change).
 
 ## Tests
-- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **96 passed**.
+- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **101 passed**.
 - Ingestion edge cases; flow gate (conservation, determinism, shuffle, same-timestamp, expiry, pooled boundary,
   exact trace); dataset-wide conservation (every link, every account's forward/back trace at 2 and 8 hops);
-  S1–S4, A1–A15, G1–G14; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; fallback (G12); trace cap (G10).
+  S1–S4, A1–A15, G1–G14; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; case network; fallback (G12); trace cap (G10).
 
 ## Performance (50 000 rows, 4 000 accounts)
 - Ingestion 0.6–0.9 s · analysis 1.8–2.4 s · upload endpoint 3.4 s · summary 0.35 s (61 ms cached)
-- network (3 hops, capped 80) ≈ 45 ms · trace (capped 50) ≈ 8 ms · queue CSV export ≈ 41 ms.
+- network (3 hops, capped 80) ≈ 45 ms · trace (capped 50) ≈ 8 ms · queue CSV export ≈ 41 ms · case network (capped 80) ≈ 14 ms.
 
 ## Known limitations
 - FIFO attribution is a convention; 72 h horizon; first 7 days are relationship warm-up.

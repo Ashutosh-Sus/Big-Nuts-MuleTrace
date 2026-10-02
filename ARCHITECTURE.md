@@ -336,6 +336,7 @@ Every non-scored consideration is an **observation** (`NEAR_MISS`, `ISOLATED_REL
 | GET | `/api/accounts/{id}/network` | k-hop transaction graph (≤ 80 nodes) |
 | GET | `/api/accounts/{id}/trace?dir=fwd\|back` | traced flow (≤ 50 nodes + aggregate node, ≤ 8 hops, pooled stops) |
 | GET | `/api/cases/{id}` | case members, roles, metrics, timeline |
+| GET | `/api/cases/{id}/network` | the whole case as one graph: members (case roles) and the case transactions between them, same contract as the account network; over 80 members, a connected part grown from origins and the highest-scoring flagged members |
 | GET | `/api/observations` | suppressed / near-miss activity |
 | POST | `/api/accounts/{id}/disposition` | Confirm / Clear with note and analyst name |
 | GET | `/api/config` | thresholds and configuration hash |

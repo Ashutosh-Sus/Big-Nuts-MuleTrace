@@ -370,6 +370,15 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
                 "confirmed": sum(1 for m in members if m["status"] == "CONFIRMED"),
                 "flagged": sum(1 for m in members if m["flagged"])}
 
+    @app.get("/api/cases/{case_id}/network")
+    def case_network(case_id: str):
+        an = state.require()
+        try:
+            c = an.cases.case(case_id)
+        except StopIteration:
+            raise HTTPException(404, f"Unknown case {case_id}")
+        return net.case_network(an, c, state.dispositions())
+
     @app.get("/api/observations")
     def observations(kind: str | None = None, flagged: bool | None = None, q: str | None = None,
                      limit: int = Query(200, ge=1, le=5000), offset: int = Query(0, ge=0)):

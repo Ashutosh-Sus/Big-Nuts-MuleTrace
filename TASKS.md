@@ -26,6 +26,7 @@ Status (all tasks complete — see STATUS.md): `[ ]` todo · `[~]` in progress �
 | [x] T19 | `scripts/evaluate.py` (only if organiser data carries labels) | T10 | precision/recall per pattern |
 | [x] T20 | "Reviewed and not flagged" page on `/api/observations` (§9–§11): reason / scope / account filters, identical statements grouped | T15, T10 | every set-aside account browsable; Overview links to it; 375 px, both themes |
 | [x] T21 | Queue CSV export `GET /api/export/queue.csv` (§10) + Queue page "Export CSV" carrying the current filters | T15, T10 | rows = `/api/queue` for the same filters (membership, order, score, severity); ₹ survives; decisions included; formula cells prefixed; group = one row; filename has dataset fingerprint + config hash |
+| [x] T22 | Case network graph: `GET /api/cases/{id}/network` (§10) + graph on the Case page (select member → its transactions, double-click → investigate) | T11, T16, T17 | nodes = case members, every case transaction on its edge, case roles; capped 80 with a connected drawn part; fallback engine; 375 px, both themes |
 
 Test catalogue (expected outcomes live in `backend/tests/`):
 S1–S7 baseline · A1–A15 adversarial · G1–G14 audit regressions · R1–R6 relationship strength · conservation · determinism · shuffle.

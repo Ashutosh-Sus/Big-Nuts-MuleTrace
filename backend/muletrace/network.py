@@ -1,6 +1,7 @@
 """Bounded graph views for the UI: k-hop transaction network and traced flow (ARCHITECTURE §10)."""
 from __future__ import annotations
 
+import heapq
 from collections import defaultdict
 from fractions import Fraction
 
@@ -90,22 +91,103 @@ def network(an, focus: str, hops: int, min_amount: int, suspicious_only: bool, d
                 e["txn_ids"].append(tx.txn_id)
             e["suspicious"] = e["suspicious"] or t in susp
 
-    identity_edges = []
-    for cl in an.identity.clusters:
-        members = [m for m in cl.accounts if m in shown]
-        for att in cl.metrics["attributes"]:
-            ms = [m for m in att["members"] if m in shown]
-            for i in range(len(ms)):
-                for j in range(i + 1, len(ms)):
-                    identity_edges.append({"source": ms[i], "target": ms[j], "attr": att["type"],
-                                           "value": att["value"]})
-        del members
     return {
         "mode": "network",
         "focus": focus,
         "nodes": [_node(an, a, dispositions, focus, dist[a]) for a in sorted(shown, key=rank)],
         "edges": sorted(edges.values(), key=lambda e: (e["first_ts"], e["id"])),
-        "identity_edges": identity_edges[:300],
+        "identity_edges": _identity_edges(an, shown),
+        "hidden_count": hidden,
+        "truncated": hidden > 0,
+    }
+
+
+def _identity_edges(an, shown: set[str]) -> list[dict]:
+    out = []
+    for cl in an.identity.clusters:
+        for att in cl.metrics["attributes"]:
+            ms = [m for m in att["members"] if m in shown]
+            for i in range(len(ms)):
+                for j in range(i + 1, len(ms)):
+                    out.append({"source": ms[i], "target": ms[j], "attr": att["type"], "value": att["value"]})
+    return out[:300]
+
+
+CASE_ROLE_ORDER = {"ORIGIN": 0, "HUB": 1, "COLLECTOR": 2, "DISTRIBUTOR": 3, "RELAY": 4, "POOLED": 5,
+                   "SINK": 6, "COUNTERPARTY": 7}
+
+
+def case_network(an, case, dispositions: dict) -> dict:
+    """The whole case on one graph: its members and the case transactions between them, same contract as
+    `network` (no focus account). Over the node cap, a connected part around origins and the highest-scoring
+    flagged members is drawn."""
+    ds = an.ds
+    txns = ds.txns
+    susp = an.suspicious_cache if hasattr(an, "suspicious_cache") else suspicious_txns(an)
+    an.suspicious_cache = susp
+
+    def rank(a: str):
+        r = an.results[a]
+        return (CASE_ROLE_ORDER.get(case.roles.get(a), 9) != 0, not r.flagged, -r.score,
+                CASE_ROLE_ORDER.get(case.roles.get(a), 9), a)
+
+    cap = an.cfg.network_max_nodes
+    if len(case.members) <= cap:
+        shown = set(case.members)
+    else:
+        # grow from the best-ranked member along case transactions, best-ranked neighbour first, so the
+        # drawn part of a large case stays connected instead of scattering its top scorers
+        adj: dict[str, set[str]] = defaultdict(set)
+        for t in case.edges:
+            adj[txns[t].sender].add(txns[t].receiver)
+            adj[txns[t].receiver].add(txns[t].sender)
+        shown = set()
+        pending = sorted(case.members, key=rank)
+        frontier: list = []
+        while len(shown) < cap:
+            if not frontier:
+                start = next(a for a in pending if a not in shown)
+                heapq.heappush(frontier, (rank(start), start))
+            _, a = heapq.heappop(frontier)
+            if a in shown:
+                continue
+            shown.add(a)
+            for b in adj[a]:
+                if b not in shown:
+                    heapq.heappush(frontier, (rank(b), b))
+    hidden = len(case.members) - len(shown)
+
+    edges: dict[tuple[str, str], dict] = {}
+    for t in sorted(case.edges, key=lambda t: (txns[t].ts, t)):
+        tx = txns[t]
+        if tx.sender not in shown or tx.receiver not in shown:
+            continue
+        e = edges.setdefault((tx.sender, tx.receiver), {
+            "id": f"{tx.sender}->{tx.receiver}", "source": tx.sender, "target": tx.receiver,
+            "count": 0, "total": 0, "first_ts": tx.ts, "last_ts": tx.ts, "txn_ids": [], "suspicious": False})
+        e["count"] += 1
+        e["total"] += tx.amount
+        e["last_ts"] = tx.ts
+        if len(e["txn_ids"]) < 50:
+            e["txn_ids"].append(tx.txn_id)
+        e["suspicious"] = e["suspicious"] or t in susp
+    # roles of this case (an account in several cases can differ per case); shown only for a case with a
+    # flagged member, as everywhere else (ARCHITECTURE §7.2)
+    labelled = any(an.results[m].flagged for m in case.members)
+    nodes = []
+    for a in sorted(shown, key=rank):
+        n = _node(an, a, dispositions, "", 0)
+        if labelled:
+            n["role"] = case.roles.get(a)
+        nodes.append(n)
+    return {
+        "mode": "network",
+        "focus": "",
+        "case": case.id,
+        "label": "case transactions",
+        "nodes": nodes,
+        "edges": sorted(edges.values(), key=lambda e: (e["first_ts"], e["id"])),
+        "identity_edges": _identity_edges(an, shown),
         "hidden_count": hidden,
         "truncated": hidden > 0,
     }

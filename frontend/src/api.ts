@@ -65,7 +65,7 @@ export interface GraphEdge {
   first_ts: number | null; last_ts: number | null; txn_ids: string[]; suspicious?: boolean;
 }
 export interface GraphData {
-  mode: "network" | "flow" | "transactions"; focus: string; nodes: GraphNode[]; edges: GraphEdge[];
+  mode: "network" | "flow" | "transactions"; focus: string; case?: string; nodes: GraphNode[]; edges: GraphEdge[];
   identity_edges?: { source: string; target: string; attr: string; value: string }[];
   hidden_count?: number; truncated?: boolean; label?: string; direction?: string;
   accounting?: { start: number; retained: number; stopped_at_pooled: number; beyond_hop_limit: number; exact: boolean };
@@ -119,6 +119,7 @@ export const api = {
       new URLSearchParams({ hops: String(hops), suspicious_only: String(suspiciousOnly), min_amount: String(minAmount) })),
   trace: (id: string, dir: "fwd" | "back") => req<GraphData>(`/api/accounts/${encodeURIComponent(id)}/trace?dir=${dir}`),
   caseDetail: (id: string) => req<CaseDetail>(`/api/cases/${encodeURIComponent(id)}`),
+  caseNetwork: (id: string) => req<GraphData>(`/api/cases/${encodeURIComponent(id)}/network`),
   observations: (params: Record<string, string>) => req<ObservationList>(
     "/api/observations?" + new URLSearchParams(params)),
   dispose: (id: string, status: string, note: string, analyst: string) =>
