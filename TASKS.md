@@ -25,6 +25,7 @@ Status (all tasks complete — see STATUS.md): `[ ]` todo · `[~]` in progress �
 | [x] T18 | Integration + reset + offline check + README | all | fresh clone → `python run.py` → demo script works |
 | [x] T19 | `scripts/evaluate.py` (only if organiser data carries labels) | T10 | precision/recall per pattern |
 | [x] T20 | "Reviewed and not flagged" page on `/api/observations` (§9–§11): reason / scope / account filters, identical statements grouped | T15, T10 | every set-aside account browsable; Overview links to it; 375 px, both themes |
+| [x] T21 | Queue CSV export `GET /api/export/queue.csv` (§10) + Queue page "Export CSV" carrying the current filters | T15, T10 | rows = `/api/queue` for the same filters (membership, order, score, severity); ₹ survives; decisions included; formula cells prefixed; group = one row; filename has dataset fingerprint + config hash |
 
 Test catalogue (expected outcomes live in `backend/tests/`):
 S1–S7 baseline · A1–A15 adversarial · G1–G14 audit regressions · R1–R6 relationship strength · conservation · determinism · shuffle.

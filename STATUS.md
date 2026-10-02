@@ -1,11 +1,25 @@
 # MuleTrace — Status
 
-_Updated after: T20 "Reviewed and not flagged" page (build phase after release; core untouched). Nothing pushed._
+_Updated after: T21 queue CSV export (build phase after release; core untouched). Nothing pushed._
 
 ## Complete
-- T0–T20 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
+- T0–T21 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## T21 — queue CSV export (no detection change)
+- `GET /api/export/queue.csv` takes the `/api/queue` filters; both endpoints use one shared filter function, so
+  membership and order are identical. `/api/queue` response unchanged.
+- Columns: rank, type, id, members, severity, score, patterns, families, role, cases, exposure (major units),
+  currency, exposure_display, primary_reason, decision, decision_analyst, decision_note, decision_at_utc.
+  UTF-8 with BOM (₹ opens correctly in spreadsheet tools); text cells starting `=` `+` `-` `@` (also tab / CR)
+  get a `'` prefix; numbers stay numeric. A group item is one row listing its members.
+- File name `muletrace-queue-<dataset sha256, 12 chars>-<config hash>.csv`, sent as an attachment.
+- Queue page: "Export CSV" next to the account filter; the link carries the current severity / pattern /
+  status / account filters.
+- Tests (14): export = queue for 9 filter combinations, headers + filename, ₹ round trip, decision after
+  Confirm, formula prefix (helper + formula-like account IDs end to end), group row.
+- 50k rows: export 41 ms vs `/api/queue` 56 ms (1 439 rows); 25 ms vs 44 ms for HIGH + MEDIUM.
 
 ## T20 — "Reviewed and not flagged" page (no detection change)
 - Gap: `/api/observations` (§10) existed but no screen used it; Overview showed 12 of N set-aside accounts with
@@ -40,14 +54,14 @@ _Updated after: T20 "Reviewed and not flagged" page (build phase after release; 
 - ARCHITECTURE §6.1/§7.1/§7.2/§12 synced with implemented clarifications (no behaviour change).
 
 ## Tests
-- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **82 passed**.
+- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **96 passed**.
 - Ingestion edge cases; flow gate (conservation, determinism, shuffle, same-timestamp, expiry, pooled boundary,
   exact trace); dataset-wide conservation (every link, every account's forward/back trace at 2 and 8 hops);
-  S1–S4, A1–A15, G1–G14; R1–R6 relationship strength; demo; API + persistence; observations filters; fallback (G12); trace cap (G10).
+  S1–S4, A1–A15, G1–G14; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; fallback (G12); trace cap (G10).
 
 ## Performance (50 000 rows, 4 000 accounts)
 - Ingestion 0.6–0.9 s · analysis 1.8–2.4 s · upload endpoint 3.4 s · summary 0.35 s (61 ms cached)
-- network (3 hops, capped 80) ≈ 45 ms · trace (capped 50) ≈ 8 ms.
+- network (3 hops, capped 80) ≈ 45 ms · trace (capped 50) ≈ 8 ms · queue CSV export ≈ 41 ms.
 
 ## Known limitations
 - FIFO attribution is a convention; 72 h horizon; first 7 days are relationship warm-up.

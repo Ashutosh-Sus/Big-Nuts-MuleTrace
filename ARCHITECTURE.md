@@ -329,6 +329,7 @@ Every non-scored consideration is an **observation** (`NEAR_MISS`, `ISOLATED_REL
 | GET | `/api/datasets/current` | ingestion report and coverage |
 | GET | `/api/summary` | dashboard figures, reviewed-not-flagged list |
 | GET | `/api/queue` | flagged accounts and group items (`severity`, `status`, `pattern`, `q`) |
+| GET | `/api/export/queue.csv` | the same filtered queue, same order, as CSV (UTF-8 with BOM; score, severity, patterns, role, cases, exposure, primary reason, analyst decision; a group item is one row listing its members; cells starting `=` `+` `-` `@` are prefixed with `'`; file name carries the dataset fingerprint and configuration hash) |
 | GET | `/api/search?q=` | any account |
 | GET | `/api/accounts/{id}` | profile, role, indicator, signals, score breakdown, observations, disposition, audit |
 | GET | `/api/accounts/{id}/transactions` | transactions |

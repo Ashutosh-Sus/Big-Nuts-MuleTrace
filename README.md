@@ -14,7 +14,8 @@ behind:
 
 Every flagged account gets a deterministic evidence score and a plain-language reason. An analyst
 can expand the network, trace where money came from and where it went, read the timeline, and
-mark the account **Confirmed** or **Cleared** with an audit trail.
+mark the account **Confirmed** or **Cleared** with an audit trail. The investigation queue, as filtered,
+can be exported as CSV with scores, reasons and analyst decisions.
 
 ## Quick start
 

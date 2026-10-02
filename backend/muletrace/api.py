@@ -1,12 +1,16 @@
 """HTTP API and static frontend hosting (ARCHITECTURE §10)."""
 from __future__ import annotations
 
+import csv
+import io
 import threading
 from dataclasses import replace
+from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -223,11 +227,10 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
             "top": items[:6], "reviewed_not_flagged": reviewed[:12], "reviewed_total": len(reviewed),
         }
 
-    @app.get("/api/queue")
-    def queue(severity: str | None = None, status: str | None = None, pattern: str | None = None,
-              q: str | None = None):
-        an = state.require()
-        items = queue_items(an, state.dispositions())
+    def filtered_queue(an: Analysis, disp: dict, severity: str | None, status: str | None,
+                       pattern: str | None, q: str | None) -> list[dict]:
+        """The queue as the analyst filters it; shared by /api/queue and the CSV export."""
+        items = queue_items(an, disp)
         if severity:
             items = [i for i in items if i["severity"] in severity.split(",")]
         if status:
@@ -237,7 +240,24 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
         if q:
             ql = q.lower()
             items = [i for i in items if ql in i["id"].lower() or any(ql in m.lower() for m in i.get("members", []))]
+        return items
+
+    @app.get("/api/queue")
+    def queue(severity: str | None = None, status: str | None = None, pattern: str | None = None,
+              q: str | None = None):
+        an = state.require()
+        items = filtered_queue(an, state.dispositions(), severity, status, pattern, q)
         return {"items": items, "total": len(items)}
+
+    @app.get("/api/export/queue.csv")
+    def export_queue(severity: str | None = None, status: str | None = None, pattern: str | None = None,
+                     q: str | None = None):
+        an = state.require()
+        disp = state.dispositions()
+        items = filtered_queue(an, disp, severity, status, pattern, q)
+        name = f"muletrace-queue-{state.dataset['sha256'][:12]}-{cfg.hash()}.csv"
+        return Response(queue_csv(an, items, disp), media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
     @app.get("/api/search")
     def search(q: str = Query(min_length=1)):
@@ -427,6 +447,39 @@ def _jsonable(x):
     if hasattr(x, "numerator") and not isinstance(x, (int, bool)):
         return float(x)
     return x
+
+
+QUEUE_CSV_COLUMNS = ["rank", "type", "id", "members", "severity", "score", "patterns", "families", "role",
+                     "cases", "exposure", "currency", "exposure_display", "primary_reason",
+                     "decision", "decision_analyst", "decision_note", "decision_at_utc"]
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def csv_safe(value):
+    """Text that a spreadsheet would evaluate as a formula is prefixed with an apostrophe."""
+    if isinstance(value, str) and value.startswith(_FORMULA_START):
+        return "'" + value
+    return value
+
+
+def queue_csv(an: Analysis, items: list[dict], disp: dict) -> bytes:
+    """Queue rows in queue order; UTF-8 with BOM so spreadsheet tools read the currency symbol."""
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\r\n")
+    w.writerow(QUEUE_CSV_COLUMNS)
+    for rank, i in enumerate(items, start=1):
+        d = disp.get(i["id"], {}) if i["type"] == "account" else {}
+        at = d.get("updated_at")
+        row = [
+            rank, i["type"], i["id"], "; ".join(i.get("members", [])), i["severity"], i["score"],
+            "; ".join(PATTERN_LABELS.get(p, p) for p in i["patterns"]), "; ".join(i["families"]),
+            i["role"] or "", "; ".join(i["cases"]),
+            Decimal(i["exposure"]).scaleb(-2), an.currency, an.fmt.money(i["exposure"]) if i["exposure"] else "",
+            i["primary_reason"], i["status"], d.get("analyst") or "", d.get("note") or "",
+            datetime.fromtimestamp(at, timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if at else "",
+        ]
+        w.writerow([csv_safe(v) for v in row])
+    return ("\ufeff" + buf.getvalue()).encode("utf-8")
 
 
 def build_with_engine(engine: str) -> Config:

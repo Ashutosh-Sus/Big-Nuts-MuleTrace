@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronRight, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Users } from "lucide-react";
 import { api } from "../api";
 import { useApp, useLoad } from "../state";
 import { Empty, ErrorBox, RoleBadge, SeverityBadge, Spinner, StatusBadge } from "../components/Badges";
@@ -42,7 +42,13 @@ export default function Queue() {
           <h1 className="text-lg font-semibold">Investigation queue</h1>
           <p className="text-sm text-muted">Ordered by severity, evidence score, then exposure. Click a row to investigate.</p>
         </div>
-        <input className="input w-60" placeholder="Filter by account ID" value={q} onChange={(e) => set("q", e.target.value)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <input className="input w-60" placeholder="Filter by account ID" value={q} onChange={(e) => set("q", e.target.value)} />
+          <a className="btn" href={"/api/export/queue.csv?" + new URLSearchParams(params)} download
+            title="Download the queue as shown, with the current filters, as CSV">
+            <Download size={15} /> Export CSV
+          </a>
+        </div>
       </div>
       <div className="card flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5">
         <FilterGroup label="Severity" options={SEVS} selected={sev} onToggle={(v) => set("severity", toggle(sev, v))} />
