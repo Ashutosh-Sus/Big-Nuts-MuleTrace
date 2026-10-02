@@ -128,7 +128,7 @@ def observations(a, analysis) -> list[dict]:
             f"{f.duration(acc.last_seen - acc.first_seen)}. Money is mixed beyond reliable attribution, "
             "so traced flows stop here. Detection on this account itself stays active.")})
 
-    if a in cases.origin_of:
+    if a in cases.origin_of and analysis.in_flagged_case(a):
         ind = cases.indicator[a]
         text = ("Observed role: likely origin of funds — money it sent into the flow came from its own "
                 "balance or long-standing relationships, not from a recent inflow.")
@@ -199,8 +199,9 @@ def observations(a, analysis) -> list[dict]:
     return obs
 
 
-def indicator_view(a: str, cases) -> dict:
-    if a not in cases.indicator:
+def indicator_view(a: str, analysis) -> dict:
+    cases = analysis.cases
+    if a not in cases.indicator or not analysis.in_flagged_case(a):
         return {"status": "NOT_ASSESSED", "text": None, "reasons": []}
     ind = cases.indicator[a]
     return {"status": ind["status"],

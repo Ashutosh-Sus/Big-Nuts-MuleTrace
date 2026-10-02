@@ -116,7 +116,7 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
             items.append({
                 "type": "account", "id": a, "score": r.score, "severity": r.severity,
                 "status": disp.get(a, {}).get("status", "OPEN"), "patterns": q, "families": r.families,
-                "role": an.cases.roles.get(a), "primary_reason": r.primary_reason, "exposure": r.exposure,
+                "role": an.role(a), "primary_reason": r.primary_reason, "exposure": r.exposure,
                 "cases": an.cases.case_of.get(a, []),
             })
         for fid, g in sorted(groups.items()):
@@ -198,7 +198,15 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
                     seen_infra.add(o["text"])
                 reviewed.append({"account": a, "kind": o["kind"], "text": o["text"]})
                 break
-        reviewed.sort(key=lambda x: (priority[x["kind"]], x["account"]))
+        # interleave kinds so each kind of false-positive defence is visible
+        by_kind: dict[str, list] = {}
+        for item in sorted(reviewed, key=lambda x: (priority[x["kind"]], x["account"])):
+            by_kind.setdefault(item["kind"], []).append(item)
+        reviewed = []
+        while any(by_kind.values()):
+            for k in sorted(by_kind, key=priority.get):
+                if by_kind[k]:
+                    reviewed.append(by_kind[k].pop(0))
         flagged_cases = [c for c in an.cases.cases if any(an.results[m].flagged for m in c.members)]
         return {
             **dataset_view(),
@@ -237,7 +245,7 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
         hits = [a for a in sorted(an.ds.accounts) if ql in a.lower()]
         hits.sort(key=lambda a: (a.lower() != ql, not a.lower().startswith(ql), a))
         return {"items": [{"id": a, "flagged": an.results[a].flagged, "score": an.results[a].score,
-                           "severity": an.results[a].severity, "role": an.cases.roles.get(a)} for a in hits[:20]]}
+                           "severity": an.results[a].severity, "role": an.role(a)} for a in hits[:20]]}
 
     def signal_view(an: Analysis, sig, r) -> dict:
         txns = an.ds.txns
@@ -285,8 +293,8 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
             "components": [{"family": c.family, "rule": c.rule, "points": c.points, "tier": c.tier,
                             "detail": c.detail, "ref": c.ref} for c in r.components],
             "signals": [signal_view(an, s, r) for s in r.signals.values()],
-            "role": an.cases.roles.get(account), "cases": an.cases.case_of.get(account, []),
-            "indicator": indicator_view(account, an.cases),
+            "role": an.role(account), "cases": an.cases.case_of.get(account, []),
+            "indicator": indicator_view(account, an),
             "chain": _path_json(an, r.chain), "corroborated": _path_json(an, r.corroborated),
             "observations": an.observations(account),
             "disposition": disp.get(account, {"status": "OPEN"}),

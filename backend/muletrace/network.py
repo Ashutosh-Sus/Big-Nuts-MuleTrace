@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import defaultdict
 from fractions import Fraction
 
+from .explain import indicator_view
 from .flow import trace
 
 TRACE_LABEL = "computed flow links (FIFO attribution)"
@@ -13,9 +14,9 @@ def _node(an, a: str, dispositions: dict, focus: str, hop: int) -> dict:
     r = an.results[a]
     acc = an.ds.accounts[a]
     return {"id": a, "score": r.score, "severity": r.severity, "flagged": r.flagged,
-            "role": an.cases.roles.get(a), "status": dispositions.get(a, {}).get("status", "OPEN"),
+            "role": an.role(a), "status": dispositions.get(a, {}).get("status", "OPEN"),
             "pooled": acc.pooled, "focus": a == focus, "hop": hop,
-            "indicator": an.cases.indicator.get(a, {}).get("status")}
+            "indicator": indicator_view(a, an)["status"]}
 
 
 def suspicious_txns(an) -> set[int]:

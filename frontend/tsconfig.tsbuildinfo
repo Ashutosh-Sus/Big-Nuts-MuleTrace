@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/format.ts","./src/main.tsx","./src/state.tsx","./src/components/badges.tsx","./src/components/graphview.tsx","./src/components/investigation.tsx","./src/pages/casepage.tsx","./src/pages/datapage.tsx","./src/pages/investigate.tsx","./src/pages/overview.tsx","./src/pages/queue.tsx"],"version":"5.6.3"}

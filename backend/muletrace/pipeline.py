@@ -26,6 +26,17 @@ class Analysis:
     history_limited: bool
     engine: str
     obs_cache: dict = field(default_factory=dict)
+    flagged_cases: set = field(default_factory=set)
+
+    def in_flagged_case(self, a: str) -> bool:
+        return any(c in self.flagged_cases for c in self.cases.case_of.get(a, []))
+
+    def role(self, a: str) -> str | None:
+        """Structural role shown to analysts: only within cases that contain a flagged account."""
+        r = self.cases.roles.get(a)
+        if r in ("POOLED", "CLUSTER_MEMBER") or self.in_flagged_case(a) or self.results[a].flagged:
+            return r
+        return None
 
     def observations(self, a: str) -> list[dict]:
         if a not in self.obs_cache:
@@ -59,6 +70,7 @@ def analyze(txns: list[Txn], cfg: Config, currency: str = "INR") -> Analysis:
 
 def _finalise(an: Analysis) -> None:
     txns = an.ds.txns
+    an.flagged_cases = {c.id for c in an.cases.cases if any(an.results[m].flagged for m in c.members)}
     for a, r in an.results.items():
         reasons = {k: explain.signal_reason(s, an.fmt, txns) for k, s in r.signals.items()}
         for c in r.components:
