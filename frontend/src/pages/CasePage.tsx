@@ -4,9 +4,11 @@ import { ExternalLink } from "lucide-react";
 import { api } from "../api";
 import { useApp, useLoad } from "../state";
 import { ErrorBox, SeverityBadge, Spinner, StatusBadge } from "../components/Badges";
-import GraphView, { GraphLegend, type Highlight } from "../components/GraphView";
+import { GraphFrame, type Highlight } from "../components/GraphView";
 import { Timeline } from "../components/Investigation";
-import { duration, moneyShort, ROLE_LABEL } from "../format";
+import { duration, moneyShort, ROLE_LABEL, timeRange } from "../format";
+import { flaggedFirst } from "../lib/members";
+import { accountPath } from "../lib/paths";
 
 export default function CasePage() {
   const { id = "" } = useParams();
@@ -16,6 +18,8 @@ export default function CasePage() {
   const { data: g, error: graphErr } = useLoad(() => api.caseNetwork(id), [id, version]);
   const [picked, setPicked] = useState<string | null>(null);
   const [showIdentity, setShowIdentity] = useState(true);
+  // selecting a member shows that member's case transactions (the full case timeline is bounded)
+  const { data: memberTl } = useLoad(() => (picked ? api.caseDetail(id, picked) : Promise.resolve(null)), [id, picked, version]);
 
   // selecting a member lights up its case transactions
   const highlight: Highlight | null = useMemo(() => {
@@ -28,60 +32,63 @@ export default function CasePage() {
   if (!c) return <Spinner />;
   const m = c.metrics;
   const toggle = (acc: string) => setPicked(picked === acc ? null : acc);
+  const facts = [
+    `${m.accounts} accounts`, `${c.flagged} flagged`,
+    c.flagged > 0 ? `${c.confirmed_flagged} of ${c.flagged} flagged confirmed` : null,
+    c.decided_not_flagged > 0 ? `${c.decided_not_flagged} decision${c.decided_not_flagged > 1 ? "s" : ""} on not-flagged members` : null,
+    m.value_from_origins != null ? `${moneyShort(m.value_from_origins)} entered from likely origins` : null,
+    m.start && m.end ? `${timeRange(m.start, m.end)} (${duration(m.end - m.start)})` : null,
+    m.median_dwell_seconds != null ? `median dwell ${duration(m.median_dwell_seconds)}` : null,
+  ].filter(Boolean);
+  const members = flaggedFirst(c.members);
+  const tl = picked && memberTl?.timeline_member === picked ? memberTl : c;
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-lg font-semibold">Case {c.id}</h1>
-        <p className="text-sm text-muted">{m.accounts} accounts · {c.flagged} flagged · {c.confirmed} confirmed ·
-          {" "}{m.value_from_origins != null ? <>{moneyShort(m.value_from_origins)} entered from likely origins</> : "value from origins —"} ·
-          {" "}{m.start && m.end ? duration(m.end - m.start) : ""} window · median dwell {duration(m.median_dwell_seconds)}</p>
+        <p className="text-sm text-muted">{facts.join(" · ")}</p>
         {c.flagged === 0 && <p className="text-xs text-muted">No member flagged — roles are not assigned.</p>}
       </div>
       <section className="card">
         <div className="card-h flex-wrap">
           <h2 className="card-t">Case network</h2>
           <div className="flex flex-wrap items-center gap-3 text-xs text-ink2">
-            <span className="text-muted">every member and the case transactions between them</span>
-            <label className="flex items-center gap-1"><input type="checkbox" checked={showIdentity}
+            <span className="text-muted">members and the case transactions between them</span>
+            <label className="flex items-center gap-1.5 py-1.5"><input type="checkbox" className="h-4 w-4" checked={showIdentity}
               onChange={(e) => setShowIdentity(e.target.checked)} /> Shared attributes</label>
           </div>
         </div>
         {graphErr && <ErrorBox message={graphErr} />}
-        {g ? <GraphView data={g} highlight={highlight} theme={theme} showIdentity={showIdentity} height={460}
-          onSelect={(acc) => setPicked(acc)} onExpand={(acc) => nav(`/account/${encodeURIComponent(acc)}`)}
-          expandHint="Double-click to investigate" /> : !graphErr && <Spinner label="Building graph…" />}
-        <div className="space-y-1.5 border-t border-line px-4 py-2">
-          <GraphLegend mode="network" />
-          <div className="text-2xs text-muted">Click a node or a member row to light up its transactions · double-click a node to investigate · scroll to zoom
-            {g?.truncated && <> · <b className="text-ink2">{g.hidden_count} more accounts not drawn</b> (bounded view)</>}</div>
-          {picked && (
-            <div className="flex items-center gap-2 text-xs">
-              <span>Selected <b className="font-mono">{picked}</b></span>
-              <Link className="link flex items-center gap-1" to={`/account/${encodeURIComponent(picked)}`}>Investigate <ExternalLink size={11} /></Link>
-              <button className="link" onClick={() => setPicked(null)}>Clear selection</button>
-            </div>
-          )}
-        </div>
+        {g ? <GraphFrame data={g} highlight={highlight} theme={theme} showIdentity={showIdentity} height={480}
+          selected={picked} onSelect={setPicked} onExpand={(acc) => nav(accountPath(acc))} title={`Case ${c.id}`}
+          expandHint="Double-click to investigate the account"
+          selectedActions={(acc) => <Link className="link flex items-center gap-1 py-1" to={accountPath(acc)}>Investigate <ExternalLink size={11} /></Link>}
+          notes={g.truncated ? <div className="text-xs text-muted"><b className="text-ink2">Showing {g.nodes.length} of {g.total_count ?? m.accounts} accounts</b> — the case's most valuable money paths (likely origin → relays → collector → cash-out), kept connected. Every member is listed below.</div> : null} />
+          : !graphErr && <Spinner label="Building graph…" />}
       </section>
-      <div className="grid gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
-        <section className="card">
-          <div className="card-h"><h2 className="card-t">Members and observed roles</h2></div>
-          <table className="tbl w-full text-sm">
-            <thead><tr><th>Account</th><th>Role</th><th>Severity</th><th>Status</th></tr></thead>
-            <tbody>
-              {c.members.map((mem) => (
-                <tr key={mem.id} onClick={() => toggle(mem.id)} aria-selected={picked === mem.id}
-                  className={`cursor-pointer ${picked === mem.id ? "bg-accent-soft" : "hover:bg-sunken/70"}`}>
-                  <td className="font-mono"><Link className="link" to={`/account/${mem.id}`} onClick={(e) => e.stopPropagation()}>{mem.id}</Link></td>
-                  <td>{mem.role ? ROLE_LABEL[mem.role] ?? mem.role : "—"}</td>
-                  <td><SeverityBadge severity={mem.severity} score={mem.flagged ? mem.score : undefined} /></td>
-                  <td><StatusBadge status={mem.status} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
+        <section className="card min-w-0">
+          <div className="card-h"><h2 className="card-t">Members and observed roles</h2><span className="text-xs text-muted">flagged first · select to highlight</span></div>
+          <div className="max-h-[560px] overflow-auto">
+            <table className="tbl w-full text-sm">
+              <thead className="sticky top-0 z-10 bg-surface"><tr><th>Account</th><th>Role</th><th>Severity</th><th>Status</th></tr></thead>
+              <tbody>
+                {members.map((mem) => (
+                  <tr key={mem.id} onClick={() => toggle(mem.id)} aria-selected={picked === mem.id} tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(mem.id); } }}
+                    className={`cursor-pointer focus-visible:outline-offset-[-2px] ${picked === mem.id ? "bg-accent-soft" : "hover:bg-sunken/70"}`}>
+                    <td className="font-mono [overflow-wrap:anywhere]"><Link className="link" to={accountPath(mem.id)} onClick={(e) => e.stopPropagation()}>{mem.id}</Link></td>
+                    <td>{mem.role ? ROLE_LABEL[mem.role] ?? mem.role : "—"}</td>
+                    <td><SeverityBadge severity={mem.severity} score={mem.flagged ? mem.score : undefined} /></td>
+                    <td><StatusBadge status={mem.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
-        <Timeline title="all case transactions" rows={c.timeline} focus={picked ?? ""} />
+        <Timeline title={tl.timeline_member ? `case transactions of ${tl.timeline_member}` : "case transactions"}
+          rows={tl.timeline} total={tl.timeline_total} focus={picked ?? ""} />
       </div>
     </div>
   );

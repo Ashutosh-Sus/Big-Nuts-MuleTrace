@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, FileUp, MinusCircle, PlayCircle, RotateCcw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, ArrowRight, CheckCircle2, FileUp, MinusCircle, PlayCircle, RotateCcw } from "lucide-react";
 import { api, ApiError, type IngestReport } from "../api";
 import { useApp } from "../state";
 import { date, dateTime } from "../format";
@@ -20,14 +20,15 @@ export default function DataPage() {
   const [err, setErr] = useState<{ msg: string; body?: any } | null>(null);
   const [drag, setDrag] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const nav = useNavigate();
 
-  const run = async (label: string, fn: () => Promise<any>, goto?: string) => {
+  // every load stays on this page so the ingestion report is seen; "Continue to Overview" moves on
+  const run = async (label: string, fn: () => Promise<any>) => {
     setBusy(label); setErr(null);
-    try { setDataset(await fn()); if (goto) nav(goto); }
+    try { setDataset(await fn()); }
     catch (e) { const ae = e as ApiError; setErr({ msg: ae.message, body: ae.body }); }
     finally { setBusy(null); }
   };
+  const choose = () => { if (!busy) fileRef.current?.click(); };
   const upload = (f: File | undefined) => f && run("Analysing " + f.name, () => api.upload(f));
 
   const rep = dataset?.report;
@@ -40,23 +41,25 @@ export default function DataPage() {
             <div
               onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
               onDrop={(e) => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files[0]); }}
-              onClick={() => fileRef.current?.click()}
+              onClick={choose} role="button" tabIndex={0} aria-label="Choose a transaction CSV to upload"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } }}
               className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${drag ? "border-accent bg-accent-soft" : "border-line-strong hover:bg-sunken"}`}>
               <FileUp size={26} className="text-accent" />
               <div className="text-sm font-medium">Drop a transaction CSV here, or click to choose</div>
               <div className="text-xs text-muted">Required: timestamp, sender, receiver, amount. Optional: device, IP, KYC, account dates, balances.</div>
-              <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => upload(e.target.files?.[0])} />
+              <input ref={fileRef} type="file" accept=".csv,text/csv" hidden tabIndex={-1}
+                onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="btn btn-primary" disabled={!!busy} onClick={() => run("Loading demo", api.loadDemo, "/")}>
+              <button className="btn btn-primary" disabled={!!busy} onClick={() => run("Loading demo", api.loadDemo)}>
                 <PlayCircle size={15} /> Load demo dataset</button>
-              <button className="btn" disabled={!!busy} onClick={() => run("Resetting demo", () => api.reset(analyst), "/")}
-                title="Reload the demo dataset and clear all analyst decisions on it">
+              <button className="btn" disabled={!!busy} onClick={() => run("Resetting demo", () => api.reset(analyst))}
+                title="Reload the demo dataset and return every analyst decision on it to Open (each account's audit trail records the reset)">
                 <RotateCcw size={15} /> Reset demo</button>
             </div>
-            {busy && <div className="text-sm text-muted animate-pulse">{busy}…</div>}
+            {busy && <div className="text-sm text-muted animate-pulse" role="status">{busy}…</div>}
             {err && (
-              <div className="rounded-md border border-high/40 bg-high-soft px-3 py-2 text-sm text-high-ink">
+              <div role="alert" className="rounded-md border border-high/40 bg-high-soft px-3 py-2 text-sm text-high-ink">
                 <div className="font-semibold">{err.msg}</div>
                 {err.body?.detected_headers && <div className="mt-1 text-xs">Detected headers: {err.body.detected_headers.join(", ")}</div>}
               </div>
@@ -110,9 +113,12 @@ function Report({ rep, name }: { rep: IngestReport; name: string }) {
   );
   return (
     <section className="card">
-      <div className="card-h">
-        <h2 className="card-t">Ingestion report · <span className="font-mono font-normal">{name}</span></h2>
-        <span className="text-xs text-muted">{date(rep.time_start)} – {date(rep.time_end)}</span>
+      <div className="card-h flex-wrap">
+        <div className="min-w-0">
+          <h2 className="card-t">Ingestion report · <span className="font-mono font-normal [overflow-wrap:anywhere]">{name}</span></h2>
+          <span className="text-xs text-muted">{date(rep.time_start)} – {date(rep.time_end)}</span>
+        </div>
+        <Link to="/" className="btn btn-primary">Continue to Overview <ArrowRight size={15} /></Link>
       </div>
       <div className="space-y-4 p-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

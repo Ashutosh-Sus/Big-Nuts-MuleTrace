@@ -1,7 +1,6 @@
 """Bounded graph views for the UI: k-hop transaction network and traced flow (ARCHITECTURE §10)."""
 from __future__ import annotations
 
-import heapq
 from collections import defaultdict
 from fractions import Fraction
 
@@ -47,6 +46,8 @@ def network(an, focus: str, hops: int, min_amount: int, suspicious_only: bool, d
         return not suspicious_only or t in susp
 
     dist = {focus: 0}
+    parents: dict[str, set[str]] = defaultdict(set)     # neighbours one hop closer to the focus
+    via_suspicious: dict[str, bool] = defaultdict(bool)
     frontier = [focus]
     for h in range(1, hops + 1):
         nxt = []
@@ -59,6 +60,9 @@ def network(an, focus: str, hops: int, min_amount: int, suspicious_only: bool, d
                 if b not in dist:
                     dist[b] = h
                     nxt.append(b)
+                if dist[b] == h:
+                    parents[b].add(a)
+                    via_suspicious[b] = via_suspicious[b] or t in susp
         frontier = sorted(nxt)
 
     volume: dict[str, int] = defaultdict(int)
@@ -70,9 +74,8 @@ def network(an, focus: str, hops: int, min_amount: int, suspicious_only: bool, d
         r = an.results[a]
         return (a != focus, dist[a], not (a in case_members), not r.flagged, -volume[a], a)
 
-    ordered = sorted(dist, key=rank)
-    shown = set(ordered[:cfg.network_max_nodes])
-    hidden = len(ordered) - len(shown)
+    shown = _select_by_level(dist, parents, via_suspicious, rank, hops, cfg.network_max_nodes, suspicious_only)
+    hidden = len(dist) - len(shown)
 
     edges: dict[tuple[str, str], dict] = {}
     for a in sorted(shown):
@@ -98,8 +101,52 @@ def network(an, focus: str, hops: int, min_amount: int, suspicious_only: bool, d
         "edges": sorted(edges.values(), key=lambda e: (e["first_ts"], e["id"])),
         "identity_edges": _identity_edges(an, shown),
         "hidden_count": hidden,
+        "total_count": len(dist),
         "truncated": hidden > 0,
     }
+
+
+def _select_by_level(dist: dict, parents: dict, via_suspicious: dict, rank, hops: int, cap: int,
+                     suspicious_only: bool) -> set[str]:
+    """Which accounts of a k-hop neighbourhood are drawn. Under the cap: all of them. Over it, each hop level
+    gets a share of the cap (so raising the hop count visibly adds the next ring), every drawn account is
+    attached to a drawn account one hop closer (the picture stays connected), and with "suspicious flows
+    only" off, accounts reached only through ordinary transactions take turns with the others."""
+    if len(dist) <= cap:
+        return set(dist)
+    focus = next(a for a, h in dist.items() if h == 0)
+    shown = {focus}
+    by_level = defaultdict(list)
+    for a, h in dist.items():
+        if h:
+            by_level[h].append(a)
+
+    def candidates(h: int) -> list[str]:
+        ready = sorted((a for a in by_level[h] if a not in shown and parents[a] & shown), key=rank)
+        if suspicious_only:
+            return ready
+        sus = [a for a in ready if via_suspicious[a]]
+        other = [a for a in ready if not via_suspicious[a]]
+        mixed = []
+        for i in range(max(len(sus), len(other))):
+            mixed += ([sus[i]] if i < len(sus) else []) + ([other[i]] if i < len(other) else [])
+        return mixed
+
+    for h in range(1, hops + 1):
+        share = -(-(cap - len(shown)) // (hops - h + 1))           # ceiling of an even split of what is left
+        shown.update(candidates(h)[:share])
+    # room left by thin levels goes to the best attachable accounts, closest levels first
+    while len(shown) < cap:
+        added = False
+        for h in range(1, hops + 1):
+            nxt = candidates(h)
+            if nxt:
+                shown.add(nxt[0])
+                added = True
+                break
+        if not added:
+            break
+    return shown
 
 
 def _identity_edges(an, shown: set[str]) -> list[dict]:
@@ -119,8 +166,8 @@ CASE_ROLE_ORDER = {"ORIGIN": 0, "HUB": 1, "COLLECTOR": 2, "DISTRIBUTOR": 3, "REL
 
 def case_network(an, case, dispositions: dict) -> dict:
     """The whole case on one graph: its members and the case transactions between them, same contract as
-    `network` (no focus account). Over the node cap, a connected part around origins and the highest-scoring
-    flagged members is drawn."""
+    `network` (no focus account). Over the node cap, a connected part built from the case's most valuable
+    money paths is drawn (`_case_story`)."""
     ds = an.ds
     txns = ds.txns
     susp = an.suspicious_cache if hasattr(an, "suspicious_cache") else suspicious_txns(an)
@@ -132,29 +179,7 @@ def case_network(an, case, dispositions: dict) -> dict:
                 CASE_ROLE_ORDER.get(case.roles.get(a), 9), a)
 
     cap = an.cfg.network_max_nodes
-    if len(case.members) <= cap:
-        shown = set(case.members)
-    else:
-        # grow from the best-ranked member along case transactions, best-ranked neighbour first, so the
-        # drawn part of a large case stays connected instead of scattering its top scorers
-        adj: dict[str, set[str]] = defaultdict(set)
-        for t in case.edges:
-            adj[txns[t].sender].add(txns[t].receiver)
-            adj[txns[t].receiver].add(txns[t].sender)
-        shown = set()
-        pending = sorted(case.members, key=rank)
-        frontier: list = []
-        while len(shown) < cap:
-            if not frontier:
-                start = next(a for a in pending if a not in shown)
-                heapq.heappush(frontier, (rank(start), start))
-            _, a = heapq.heappop(frontier)
-            if a in shown:
-                continue
-            shown.add(a)
-            for b in adj[a]:
-                if b not in shown:
-                    heapq.heappush(frontier, (rank(b), b))
+    shown = set(case.members) if len(case.members) <= cap else _case_story(an, case, cap)
     hidden = len(case.members) - len(shown)
 
     edges: dict[tuple[str, str], dict] = {}
@@ -189,7 +214,151 @@ def case_network(an, case, dispositions: dict) -> dict:
         "edges": sorted(edges.values(), key=lambda e: (e["first_ts"], e["id"])),
         "identity_edges": _identity_edges(an, shown),
         "hidden_count": hidden,
+        "total_count": len(case.members),
         "truncated": hidden > 0,
+    }
+
+
+def _case_story(an, case, cap: int) -> set[str]:
+    """The drawn part of a case larger than the node cap: its most valuable money paths, kept connected.
+
+    A path starts at a likely origin (or, if the case has none, at a member that receives no case
+    transaction) and follows the largest outgoing case transaction until the money leaves the case. Paths are
+    taken in order of the value entering them; each path after the first must share an account with what is
+    already drawn. Room that is left goes to the highest-scoring flagged neighbours. The result shows victims,
+    relays, collectors and cash-out together instead of whichever role happens to rank first."""
+    txns = an.ds.txns
+    members = set(case.members)
+    out: dict[str, list[int]] = defaultdict(list)
+    has_in: set[str] = set()
+    adj: dict[str, set[str]] = defaultdict(set)
+    for t in sorted(case.edges):
+        s, r = txns[t].sender, txns[t].receiver
+        out[s].append(t)
+        has_in.add(r)
+        adj[s].add(r)
+        adj[r].add(s)
+    best_out = {a: sorted(ts, key=lambda t: (-txns[t].amount, txns[t].ts, t)) for a, ts in out.items()}
+    starts = sorted(a for a in members if case.roles.get(a) == "ORIGIN" and a in best_out)
+    if not starts:
+        starts = sorted(a for a in members if a not in has_in and a in best_out)
+    paths = []
+    for s in starts:
+        path, seen, cur = [s], {s}, s
+        while True:
+            nxt = next((txns[t].receiver for t in best_out.get(cur, []) if txns[t].receiver not in seen), None)
+            if nxt is None:
+                break
+            path.append(nxt)
+            seen.add(nxt)
+            cur = nxt
+        if len(path) > 1:
+            paths.append((-txns[best_out[s][0]].amount, s, path))
+    paths.sort()
+
+    shown: set[str] = set()
+
+    def add_path(path: list[str]) -> None:
+        # nearest-to-the-drawn-part first, so a path that does not fit whole is still attached
+        on = [i for i, a in enumerate(path) if a in shown] or [0]
+        order = sorted(range(len(path)), key=lambda i: (min(abs(i - j) for j in on), i))
+        for i in order:
+            if len(shown) >= cap:
+                return
+            shown.add(path[i])
+        # where the money left the case: each path account's largest payees that move nothing further
+        # (a path follows only the largest transfer, so a second cash-out account would otherwise be missing)
+        for a in path:
+            ends = [txns[t].receiver for t in best_out.get(a, []) if txns[t].receiver not in best_out]
+            for b in list(dict.fromkeys(ends))[:2]:
+                if len(shown) >= cap:
+                    return
+                shown.add(b)
+
+    def score_rank(a: str):
+        r = an.results[a]
+        return (not r.flagged, -r.score, CASE_ROLE_ORDER.get(case.roles.get(a), 9), a)
+
+    pending = [p for _, _, p in paths]
+    if not pending:
+        shown.add(min(members, key=score_rank))
+    def gain(p: list[str]) -> int:
+        """Accounts other than victims that the path would add: prefer paths reaching new relays, collectors
+        and cash-out accounts over many paths that only add another victim to an already drawn chain."""
+        return sum(1 for a in p if a not in shown and case.roles.get(a) != "ORIGIN")
+
+    while len(shown) < cap:
+        touching = [(-gain(p), i, p) for i, p in enumerate(pending) if (not shown or set(p) & shown) and gain(p)]
+        fit = min(touching)[2] if touching else None
+        if fit is not None:
+            pending.remove(fit)
+            add_path(fit)
+            continue
+        # no remaining path adds anything but another victim: take one neighbour — not a victim if avoidable,
+        # preferably one on a remaining path (so further paths can join), then flagged members by score
+        on_path = {a for p in pending for a in p}
+        border = {b for a in shown for b in adj[a] if b not in shown}
+        if not border:
+            break
+        shown.add(min(border, key=lambda b: (case.roles.get(b) == "ORIGIN", b not in on_path, score_rank(b))))
+    return shown
+
+
+def directional_view(an, account: str, direction: str, dispositions: dict) -> dict:
+    """Fallback engine (no flow tracing): the suspicious transactions leading into the account (`back`) or out
+    of it (`fwd`), followed hop by hop in that direction only. Transaction-level, not traced amounts."""
+    ds = an.ds
+    txns = ds.txns
+    hops = 2
+    susp = an.suspicious_cache if hasattr(an, "suspicious_cache") else suspicious_txns(an)
+    an.suspicious_cache = susp
+    dist = {account: 0}
+    used: list[int] = []
+    frontier = [account]
+    for h in range(1, hops + 1):
+        nxt = []
+        for a in frontier:
+            acc = ds.accounts[a]
+            for t in sorted(acc.in_txns if direction == "back" else acc.out_txns):
+                if t not in susp:
+                    continue
+                b = txns[t].sender if direction == "back" else txns[t].receiver
+                if b not in dist:
+                    dist[b] = h
+                    nxt.append(b)
+                if dist[b] == h:
+                    used.append(t)
+        frontier = sorted(nxt)
+
+    def rank(a: str):
+        r = an.results[a]
+        return (a != account, dist[a], not r.flagged, -r.score, a)
+
+    shown = set(sorted(dist, key=rank)[:an.cfg.network_max_nodes])
+    edges: dict[tuple[str, str], dict] = {}
+    for t in sorted(used, key=lambda t: (txns[t].ts, t)):
+        tx = txns[t]
+        if tx.sender not in shown or tx.receiver not in shown:
+            continue
+        e = edges.setdefault((tx.sender, tx.receiver), {
+            "id": f"{tx.sender}->{tx.receiver}", "source": tx.sender, "target": tx.receiver,
+            "count": 0, "total": 0, "first_ts": tx.ts, "last_ts": tx.ts, "txn_ids": [], "suspicious": True})
+        e["count"] += 1
+        e["total"] += tx.amount
+        e["last_ts"] = tx.ts
+        if len(e["txn_ids"]) < 50:
+            e["txn_ids"].append(tx.txn_id)
+    into = direction == "back"
+    return {
+        "mode": "transactions", "direction": direction, "focus": account,
+        "label": (f"suspicious transactions {'into' if into else 'out of'} this account, up to {hops} hops "
+                  f"{'back' if into else 'on'} (not traced) — flow tracing unavailable in fallback mode"),
+        "nodes": [_node(an, a, dispositions, account, dist[a]) for a in sorted(shown, key=rank)],
+        "edges": sorted(edges.values(), key=lambda e: (e["first_ts"], e["id"])),
+        "identity_edges": [],
+        "hidden_count": len(dist) - len(shown),
+        "total_count": len(dist),
+        "truncated": len(dist) > len(shown),
     }
 
 
@@ -209,10 +378,7 @@ def trace_view(an, account: str, direction: str, dispositions: dict) -> dict:
     cfg = an.cfg
     txns = an.ds.txns
     if an.engine != "flow":
-        view = network(an, account, 2, 0, True, dispositions)
-        view.update(mode="transactions", direction=direction,
-                    label="transactions (not traced) — flow tracing unavailable in fallback mode")
-        return view
+        return directional_view(an, account, direction, dispositions)
     starts = _start_txns(an, account, direction)
     tr = trace(an.ds, an.fg, starts, direction, cfg.trace_max_hops)
     involved = defaultdict(Fraction)

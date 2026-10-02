@@ -5,6 +5,7 @@ import { api } from "../api";
 import { useApp, useLoad } from "../state";
 import { Empty, ErrorBox, RoleBadge, SeverityBadge, Spinner, StatusBadge } from "../components/Badges";
 import { moneyShort, PATTERN_LABEL } from "../format";
+import { accountPath } from "../lib/paths";
 
 const SEVS = ["HIGH", "MEDIUM", "LOW"];
 const PATTERNS = ["RELAY", "HUB", "LAYERED_RECEIPT", "ROUND_TRIP", "IDENTITY"];
@@ -43,7 +44,7 @@ export default function Queue() {
           <p className="text-sm text-muted">Ordered by severity, evidence score, then exposure. Click a row to investigate.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input className="input w-60" placeholder="Filter by account ID" value={q} onChange={(e) => set("q", e.target.value)} />
+          <input className="input w-60" placeholder="Filter by account ID" aria-label="Filter the queue by account ID" value={q} onChange={(e) => set("q", e.target.value)} />
           <a className="btn" href={"/api/export/queue.csv?" + new URLSearchParams(params)} download
             title="Download the queue as shown, with the current filters, as CSV">
             <Download size={15} /> Export CSV
@@ -72,12 +73,14 @@ export default function Queue() {
               {data.items.map((i) => (
                 <Fragment key={i.id}>
                   <tr className="cursor-pointer hover:bg-sunken/70"
-                    onClick={() => i.type === "account" ? nav(`/account/${i.id}`) : setExpanded(expanded === i.id ? null : i.id)}>
-                    <td className="font-mono text-[13px] font-semibold">
+                    onClick={() => i.type === "account" ? nav(accountPath(i.id)) : setExpanded(expanded === i.id ? null : i.id)}>
+                    <td className="font-mono text-[13px] font-semibold [overflow-wrap:anywhere]">
                       {i.type === "group" ? (
-                        <span className="flex items-center gap-1">{expanded === i.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                          <Users size={14} /> {i.size} accounts</span>
-                      ) : <Link to={`/account/${i.id}`} onClick={(e) => e.stopPropagation()} className="link">{i.id}</Link>}
+                        <button type="button" className="flex items-center gap-1 py-1" aria-expanded={expanded === i.id}
+                          onClick={(e) => { e.stopPropagation(); setExpanded(expanded === i.id ? null : i.id); }}>
+                          {expanded === i.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          <Users size={14} /> {i.size} accounts</button>
+                      ) : <Link to={accountPath(i.id)} onClick={(e) => e.stopPropagation()} className="link">{i.id}</Link>}
                     </td>
                     <td><SeverityBadge severity={i.severity} score={i.score} /></td>
                     <td className="text-ink2"><span className="line-clamp-2">{i.primary_reason}</span></td>
@@ -90,7 +93,7 @@ export default function Queue() {
                   {i.type === "group" && expanded === i.id && (
                     <tr><td colSpan={7} className="bg-sunken/40">
                       <div className="flex flex-wrap gap-1.5">{i.members?.map((m) => (
-                        <Link key={m} to={`/account/${m}`} className="rounded border border-line bg-raised px-2 py-0.5 font-mono text-xs link">{m}</Link>))}</div>
+                        <Link key={m} to={accountPath(m)} className="rounded border border-line bg-raised px-2 py-1 font-mono text-xs link">{m}</Link>))}</div>
                     </td></tr>
                   )}
                 </Fragment>

@@ -41,7 +41,7 @@ export default {
         sans: ["system-ui", "-apple-system", '"Segoe UI"', "Roboto", "sans-serif"],
         mono: ['"Cascadia Mono"', "Consolas", "ui-monospace", "monospace"],
       },
-      fontSize: { "2xs": ["0.6875rem", "1rem"] },
+      fontSize: { "2xs": ["0.75rem", "1rem"] },
       boxShadow: { card: "0 1px 0 rgb(var(--shadow) / 0.04), 0 1px 3px rgb(var(--shadow) / 0.06)" },
     },
   },

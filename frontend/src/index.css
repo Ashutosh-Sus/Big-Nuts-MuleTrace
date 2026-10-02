@@ -92,7 +92,7 @@ body {
   .btn-primary { @apply bg-accent border-accent text-on-accent hover:bg-accent-ink; }
   .btn-ghost { @apply border-transparent bg-transparent hover:bg-sunken; }
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5 text-xs text-ink2 bg-raised
+    @apply inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs text-ink2 bg-raised
       hover:border-line-strong cursor-pointer select-none;
   }
   .chip-on { @apply border-accent bg-accent-soft text-accent-ink; }

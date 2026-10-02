@@ -1,11 +1,65 @@
 # MuleTrace — Status
 
-_Updated after: dark-theme button contrast + graph edge encoding (quality fixes, display only). Nothing pushed._
+_Updated after: console QA remediation (B1–B14, graph readability, mobile, accessibility; no detection change). Nothing pushed._
 
 ## Complete
 - T0–T23 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## Console QA remediation (display, API views and state only — no detection change)
+A full product QA pass (every surface, demo / fallback / empty / malformed / unusual-ID / 50k data, light + dark,
+desktop + 375 px) found console defects; all fixed. Engine snapshot before/after — every account's score,
+severity, components, role, cases, exposure, observations; every case; every forward/back trace — byte-identical
+on demo, fallback engine and the 50k benchmark.
+- **Search (B1):** results carry the query they answer; Enter uses only current results, else searches now;
+  exact ID preferred; "No account matches" feedback. (`AC1` → `AC5530` + Enter used to open AC1000.)
+- **Evidence (B2):** a real neutral state — the graph opens undimmed; a card selects, the same card deselects;
+  a banner names the highlighted evidence with "Show all"; the timeline shows the first evidence when none is
+  selected. Cleared accounts are no longer faded (green ring + "cleared" in the label), so faded means only
+  "outside the highlighted evidence".
+- **Decisions (B3, B12):** a failed request keeps the note and shows "The decision was not saved …" (no
+  unhandled rejection); reason shortcuts grouped per action (Confirm / Clear) and only for available actions.
+- **Overview ↔ Not flagged (B4):** the Overview count was preview rows after collapsing the 23 office-IP
+  accounts and omitting four reason kinds (21 vs 43). Both now count the same scope — not-flagged accounts with
+  a stated reason (all kinds but "no pattern", `REVIEW_KINDS`): demo 43 = 43; the preview says "12 examples".
+- **Trace expansion (B5):** double-click in a trace opens that account's own trace (view in the URL); traces
+  are never merged, so an exact total is never mixed with another start account's amounts.
+- **Bounded timelines (B6):** case timeline returns `timeline_total`, `?member=` gives one member's case
+  transactions; signal timelines carry `timeline_total`; headers say "first 200 of 2085" instead of "all".
+- **Reset (B7):** the audit log stays append-only; each decision cleared by Reset gets its own RESET entry
+  (confirmed → open), shown in the trail as "demo reset". Previously status read Open while the trail ended in
+  "confirmed". Other datasets' decisions untouched.
+- **Decisions on not-flagged accounts (B8, B11):** allowed by §10 and kept; Overview lists them separately
+  ("not in the queue"), flagged decision counts equal the queue's, Not flagged rows show the decision, the case
+  reports `confirmed_flagged` / `decided_not_flagged` ("0 of 0" / "1 of 0 flagged confirmed" gone).
+- **URL-unsafe IDs (B9):** every link encodes IDs (`lib/paths.ts`); account routes take `{account:path}`
+  with the detail route registered after its sub-routes (`ACC/7#9` returned the page HTML before).
+- **Long notes (B10):** containment (`minmax(0,1fr)` track, `overflow-wrap:anywhere`) — 375 px stays 375 px.
+- **Graph after a decision (B13):** the status is patched into the drawing; expanded neighbourhoods survive.
+- **Fallback views (B14):** "came from" / "went" follow suspicious transactions into / out of the account hop by
+  hop (both showed the same 2-hop network before); flow engine unchanged.
+- **Graphs:** layered layout on money links only (shared attributes no longer move accounts), wide columns
+  wrapped into a grid (payroll fan-out: 3.3 px → 12 px labels, all 26 in view), money flowing back drawn as an
+  arc, labels never below 8 px (large graphs open at a readable zoom around the key account, "Fit all" shows
+  everything), short edge labels shown on small graphs or highlighted / selected links (hero network: 0 edge-
+  label collisions, was 4), selection halo distinct from severity / decision / evidence, severity and decision
+  in words on each account, "Find account in graph" picker + selection panel (keyboard and touch), full-screen
+  explorer, legend covering every encoding.
+- **Capped graphs:** account network gives each hop level a share of the 80 nodes, attached to a drawn account
+  one hop closer, mixing ordinary-only accounts in when the filter is off (Hops / filter visibly change a capped
+  graph). Case network over 80 members is built from its most valuable money paths (50k case: 16 origins, 46
+  relays, 7 collectors, 11 cash-out, connected; was 40 victims + 39 hubs, no cash-out).
+- **Mobile / readability / a11y:** header not sticky below `sm`, analyst name visible at every width (decision
+  panel says "Recorded as …"), inline graph is a still preview with "Open graph to explore" (no scroll trap);
+  smallest text 11 → 12 px; members flagged first in a scrolling table; empty states on a zero-flag Overview;
+  IST audit times and dated case windows; Exposure explained; priority reasons two lines; Data stays on the
+  ingestion report after Load / Reset ("Continue to Overview"); keyboard drop zone, arrow-key graph tabs,
+  `aria-pressed` evidence cards, focusable member rows, labelled filter, larger touch targets.
+- Tests: `test_console_fixes.py` (15) + `frontend/tests/console.test.ts` (10, `npm test`, Node's built-in runner).
+- Checked: DEMO.md end to end (2 125 / 6 rejected / 1 duplicate; 29 flagged of 270, 5 high, 3 cases; 43 = 43;
+  AC5530 HIGH 95 = 60 + 20 + 15; diamonds for AC2207 / AC3318; ₹8,33,000 traced exact; timeline 10:05 10:08 10:11
+  10:12 13:30 13:34; case card ₹6 L, 0 → 1 of 9 confirmed); every page light + dark ≥ 4.5:1; 375 px no overflow.
 
 ## Quality fixes — dark-theme filled controls, graph edges without colour alone (§11)
 - Text on filled controls now comes from tokens: `--on-accent`, and `--high-fill` / `--on-high` for Confirm.
@@ -115,14 +169,20 @@ _Updated after: dark-theme button contrast + graph edge encoding (quality fixes,
 - ARCHITECTURE §6.1/§7.1/§7.2/§12 synced with implemented clarifications (no behaviour change).
 
 ## Tests
-- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **105 passed**.
+- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **120 passed**.
+- `cd frontend; npm test` → **10 passed** (search race, evidence toggle, decision failure / reasons, trace merge guard,
+  status patch, link encoding, fan-out wrap, IST times).
 - Ingestion edge cases; flow gate (conservation, determinism, shuffle, same-timestamp, expiry, pooled boundary,
   exact trace); dataset-wide conservation (every link, every account's forward/back trace at 2 and 8 hops);
-  S1–S4, A1–A15, G1–G15; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; case network; fallback (G12); trace cap (G10).
+  S1–S4, A1–A15, G1–G15; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; case network; fallback (G12); trace cap (G10);
+  console consistency (Overview = Not flagged scope, decisions on any account, reset audit, bounded timelines, URL-unsafe IDs,
+  capped graph selection, directional fallback views).
 
 ## Performance (50 000 rows, 4 000 accounts)
 - Ingestion 0.6–0.9 s · analysis 1.8–2.4 s · upload endpoint 3.4 s · summary 0.35 s (61 ms cached)
 - network (3 hops, capped 80) ≈ 45 ms · trace (capped 50) ≈ 8 ms · queue CSV export ≈ 41 ms · case network (capped 80) ≈ 14 ms.
+- After the console remediation (own 50k benchmark, 784-member case): case network 20 ms; case page to graph ≈ 0.8 s;
+  member highlight 47 ms; filter toggle refetch ≈ 0.4 s.
 
 ## Known limitations
 - FIFO attribution is a convention; 72 h horizon; first 7 days are relationship warm-up.
@@ -137,6 +197,8 @@ _Updated after: dark-theme button contrast + graph edge encoding (quality fixes,
 - Identity restoration links only flow-active case members.
 - Roles / possible-victim indicator shown only for cases with a flagged member.
 - Relationship ESTABLISHED is money-weighted per payment (v1.2.1, §4).
+- Decisions may be recorded on any account (§10); the queue / export list flagged accounts; decisions on
+  not-flagged accounts are listed on the Overview. Reset writes per-account RESET audit entries (append-only).
 
 ## Git
 - Local `main`, history rewritten to remove machine-local ignore entries; nothing pushed.

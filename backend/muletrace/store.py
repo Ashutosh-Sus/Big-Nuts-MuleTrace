@@ -105,8 +105,16 @@ class Store:
             return [dict(r) for r in c.execute(q, args).fetchall()]
 
     def clear_dispositions(self, sha: str, analyst: str) -> None:
+        """Every decision returns to OPEN. The audit log stays append-only: each account whose decision is
+        cleared gets its own RESET entry, so its history ends in the state the account is actually in."""
         now = int(time.time())
         with self.lock, self._conn() as c:
+            rows = c.execute("SELECT account_id, status FROM dispositions WHERE dataset_sha = ? AND status != 'OPEN' "
+                             "ORDER BY account_id", (sha,)).fetchall()
+            for r in rows:
+                c.execute("INSERT INTO audit_log (dataset_sha, account_id, action, from_status, to_status, note, "
+                          "analyst, at) VALUES (?, ?, 'RESET', ?, 'OPEN', 'demo reset', ?, ?)",
+                          (sha, r["account_id"], r["status"], analyst, now))
             c.execute("DELETE FROM dispositions WHERE dataset_sha = ?", (sha,))
             c.execute("INSERT INTO audit_log (dataset_sha, account_id, action, from_status, to_status, note, analyst, at) "
                       "VALUES (?, '*', 'RESET', NULL, 'OPEN', 'demo reset', ?, ?)", (sha, analyst, now))

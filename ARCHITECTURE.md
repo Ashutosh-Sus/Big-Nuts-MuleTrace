@@ -325,7 +325,7 @@ Every non-scored consideration is an **observation** (`NEAR_MISS`, `ISOLATED_REL
 |---|---|---|
 | POST | `/api/datasets` | upload CSV (multipart) |
 | POST | `/api/datasets/demo` | load the bundled demo dataset |
-| POST | `/api/reset` | reload demo, clear dispositions |
+| POST | `/api/reset` | reload demo, clear dispositions (the audit log stays append-only: each cleared decision gets a RESET entry) |
 | GET | `/api/datasets/current` | ingestion report and coverage |
 | GET | `/api/summary` | dashboard figures, reviewed-not-flagged list |
 | GET | `/api/queue` | flagged accounts and group items (`severity`, `status`, `pattern`, `q`) |
@@ -336,13 +336,14 @@ Every non-scored consideration is an **observation** (`NEAR_MISS`, `ISOLATED_REL
 | GET | `/api/accounts/{id}/network` | k-hop transaction graph (≤ 80 nodes) |
 | GET | `/api/accounts/{id}/trace?dir=fwd\|back` | traced flow (≤ 50 nodes + aggregate node, ≤ 8 hops, pooled stops) |
 | GET | `/api/cases/{id}` | case members, roles, metrics, timeline |
-| GET | `/api/cases/{id}/network` | the whole case as one graph: members (case roles) and the case transactions between them, same contract as the account network; over 80 members, a connected part grown from origins and the highest-scoring flagged members |
+| GET | `/api/cases/{id}/network` | the whole case as one graph: members (case roles) and the case transactions between them, same contract as the account network; over 80 members, a connected part built from the case's most valuable money paths (likely origin → relays → cash-out), then the highest-scoring flagged neighbours |
 | GET | `/api/observations` | suppressed / near-miss activity |
 | POST | `/api/accounts/{id}/disposition` | Confirm / Clear with note and analyst name |
 | GET | `/api/config` | thresholds and configuration hash |
 
 **Fallback mode** (`engine=window`): window-based signals behind the same contract; the trace
-endpoint returns transaction-level results labelled `"mode": "transactions"`.
+endpoint returns transaction-level results labelled `"mode": "transactions"`: the suspicious transactions into
+(`back`) or out of (`fwd`) the account, followed hop by hop in that direction.
 
 ---
 

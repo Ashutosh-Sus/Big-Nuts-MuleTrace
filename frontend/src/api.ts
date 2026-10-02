@@ -20,7 +20,7 @@ export interface QueueItem {
 }
 export interface Observation { kind: string; text: string; account?: string; episode?: string }
 export interface ObservationRow extends Observation {
-  account: string; flagged: boolean; severity: Severity | null; score: number; role: string | null;
+  account: string; flagged: boolean; severity: Severity | null; score: number; role: string | null; status: Status;
 }
 export interface ObservationList { items: ObservationRow[]; total: number; counts: Record<string, number> }
 export interface Summary extends DatasetView {
@@ -28,7 +28,8 @@ export interface Summary extends DatasetView {
     exposure: number; flow_links: number; time_start: number; time_end: number };
   severity: Record<Severity, number>; patterns: Record<string, number>; pattern_labels: Record<string, string>;
   status: Record<string, number>; top: QueueItem[]; reviewed_not_flagged: (Observation & { account: string })[];
-  reviewed_total: number;
+  reviewed_total: number; review_kinds: string[];
+  decided_not_flagged: { id: string; status: Status; analyst: string | null; at: number | null }[];
 }
 export interface TxnRow {
   txn_id: string; ts: number; sender: string; receiver: string; amount: number; channel: string | null;
@@ -38,7 +39,7 @@ export interface Component { family: string; rule: string; points: number; tier:
 export interface SignalView {
   kind: string; label: string; family: string; raw_tier: string | null; final_tier: string | null;
   qualifies: boolean; reason: string; metrics: Record<string, any>; notes: string[]; finding: string | null;
-  timeline: TxnRow[]; path: string[];
+  timeline: TxnRow[]; timeline_total: number; path: string[];
 }
 export interface PathInfo { accounts: string[]; txn_ids: string[]; span: number }
 export interface AuditRow { id: number; account_id: string; action: string; from_status: string | null;
@@ -67,7 +68,7 @@ export interface GraphEdge {
 export interface GraphData {
   mode: "network" | "flow" | "transactions"; focus: string; case?: string; nodes: GraphNode[]; edges: GraphEdge[];
   identity_edges?: { source: string; target: string; attr: string; value: string }[];
-  hidden_count?: number; truncated?: boolean; label?: string; direction?: string;
+  hidden_count?: number; total_count?: number; truncated?: boolean; label?: string; direction?: string;
   accounting?: { start: number; retained: number; stopped_at_pooled: number; beyond_hop_limit: number; exact: boolean };
   aggregated_accounts?: number;
 }
@@ -75,7 +76,8 @@ export interface CaseDetail {
   id: string; members: { id: string; role: string | null; score: number; severity: Severity | null; flagged: boolean; status: string }[];
   metrics: { accounts: number; active: number; transactions: number; start: number | null; end: number | null;
     median_dwell_seconds: number | null; value_from_origins: number | null; value_moved: number };
-  families: string[]; origins: string[]; timeline: TxnRow[]; confirmed: number; flagged: number;
+  families: string[]; origins: string[]; timeline: TxnRow[]; timeline_total: number; timeline_member: string | null;
+  confirmed: number; confirmed_flagged: number; decided_not_flagged: number; flagged: number;
 }
 
 export class ApiError extends Error {
@@ -118,7 +120,8 @@ export const api = {
     req<GraphData>(`/api/accounts/${encodeURIComponent(id)}/network?` +
       new URLSearchParams({ hops: String(hops), suspicious_only: String(suspiciousOnly), min_amount: String(minAmount) })),
   trace: (id: string, dir: "fwd" | "back") => req<GraphData>(`/api/accounts/${encodeURIComponent(id)}/trace?dir=${dir}`),
-  caseDetail: (id: string) => req<CaseDetail>(`/api/cases/${encodeURIComponent(id)}`),
+  caseDetail: (id: string, member?: string | null) => req<CaseDetail>(`/api/cases/${encodeURIComponent(id)}` +
+    (member ? `?member=${encodeURIComponent(member)}` : "")),
   caseNetwork: (id: string) => req<GraphData>(`/api/cases/${encodeURIComponent(id)}/network`),
   observations: (params: Record<string, string>) => req<ObservationList>(
     "/api/observations?" + new URLSearchParams(params)),

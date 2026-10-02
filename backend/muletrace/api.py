@@ -28,6 +28,12 @@ DEMO_CSV = ROOT / "data" / "demo.csv"
 PATTERNS = ("RELAY", "HUB", "LAYERED_RECEIPT", "ROUND_TRIP", "IDENTITY")
 PATTERN_LABELS = {"RELAY": "Pass-through", "HUB": "Fan-in → fan-out", "LAYERED_RECEIPT": "Layered funds received",
                   "ROUND_TRIP": "Circular flow", "IDENTITY": "Shared attributes"}
+# Observation kinds that state why activity was considered and set aside (§9). NO_PATTERN ("nothing notable")
+# is not one of them. The Overview count and the "Not flagged" page both use exactly this scope.
+REVIEW_KINDS = ("MITIGATED", "ORIGIN_ZEROED", "INFRA_ATTRIBUTE", "ISOLATED_RELAY", "POOLED", "UNCORROBORATED",
+                "NEAR_MISS", "ORIGIN", "RECIPROCAL", "HISTORY_UNAVAILABLE")
+CASE_TIMELINE_LIMIT = 200
+SIGNAL_TIMELINE_LIMIT = 60
 
 
 class ResetBody(BaseModel):
@@ -186,17 +192,25 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
         status = {s: 0 for s in ("OPEN", "CONFIRMED", "CLEARED")}
         for r in flagged:
             status[disp.get(r.id, {}).get("status", "OPEN")] += 1
+        # decisions may be recorded on any account (§10); the queue lists flagged accounts only, so decisions
+        # on accounts that are not flagged are reported separately instead of disappearing
+        decided_unflagged = [{"id": a, "status": d["status"], "analyst": d.get("analyst"), "at": d.get("updated_at")}
+                             for a, d in sorted(disp.items())
+                             if d["status"] != "OPEN" and a in an.results and not an.results[a].flagged]
         reviewed = []
-        priority = {"MITIGATED": 0, "ORIGIN_ZEROED": 1, "INFRA_ATTRIBUTE": 2, "ISOLATED_RELAY": 3,
-                    "POOLED": 4, "UNCORROBORATED": 5}
+        priority = {k: i for i, k in enumerate(REVIEW_KINDS)}
+        reviewed_accounts = set()
         seen_infra = set()
         for a in sorted(an.results):
             if an.results[a].flagged:
                 continue
             best = None
             for o in an.observations(a):
-                if o["kind"] not in priority or (o["kind"] == "INFRA_ATTRIBUTE" and o["text"] in seen_infra):
+                if o["kind"] not in priority:
                     continue
+                reviewed_accounts.add(a)
+                if o["kind"] == "INFRA_ATTRIBUTE" and o["text"] in seen_infra:
+                    continue                    # one shared-infrastructure statement is shown once in the preview
                 if best is None or priority[o["kind"]] < priority[best["kind"]]:
                     best = o
             if best:
@@ -224,7 +238,11 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
                 "time_start": an.ds.start, "time_end": an.ds.end,
             },
             "severity": sev, "patterns": patterns, "pattern_labels": PATTERN_LABELS, "status": status,
-            "top": items[:6], "reviewed_not_flagged": reviewed[:12], "reviewed_total": len(reviewed),
+            "decided_not_flagged": decided_unflagged,
+            # preview: one statement per account, interleaved by kind; total: every not-flagged account with a
+            # stated reason, the same accounts the "Not flagged" page lists by default
+            "top": items[:6], "reviewed_not_flagged": reviewed[:12], "reviewed_total": len(reviewed_accounts),
+            "review_kinds": list(REVIEW_KINDS),
         }
 
     def filtered_queue(an: Analysis, disp: dict, severity: str | None, status: str | None,
@@ -287,11 +305,12 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
             "final_tier": TIER_NAMES[sig.final_tier] if sig.final_tier is not None else None,
             "qualifies": sig.qualifies, "reason": signal_reason(sig, an.fmt, txns),
             "metrics": _jsonable(sig.metrics), "notes": sig.notes, "finding": sig.finding,
-            "timeline": timeline[:60],
+            "timeline": timeline[:SIGNAL_TIMELINE_LIMIT], "timeline_total": len(timeline),
             "path": _path_of(sig, r),
         }
 
-    @app.get("/api/accounts/{account}")
+    # Account IDs are free text (they may contain "/", "?", "#"): routes take the encoded ID as a path
+    # parameter; the detail route is registered after its sub-routes so it cannot swallow them.
     def account_detail(account: str):
         an = state.require()
         acc = account_or_404(an, account)
@@ -322,7 +341,7 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
             "audit": state.store.audit(sha, account),
         }
 
-    @app.get("/api/accounts/{account}/transactions")
+    @app.get("/api/accounts/{account:path}/transactions")
     def account_txns(account: str, limit: int = 500):
         an = state.require()
         acc = account_or_404(an, account)
@@ -335,13 +354,13 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
             rows.append(row)
         return {"items": rows, "total": len(acc.in_txns) + len(acc.out_txns)}
 
-    @app.get("/api/accounts/{account}/network")
+    @app.get("/api/accounts/{account:path}/network")
     def account_network(account: str, hops: int = 1, min_amount: int = 0, suspicious_only: bool = False):
         an = state.require()
         account_or_404(an, account)
         return net.network(an, account, hops, min_amount, suspicious_only, state.dispositions())
 
-    @app.get("/api/accounts/{account}/trace")
+    @app.get("/api/accounts/{account:path}/trace")
     def account_trace(account: str, dir: str = "fwd"):
         an = state.require()
         account_or_404(an, account)
@@ -349,8 +368,10 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
             raise HTTPException(400, "dir must be fwd or back")
         return net.trace_view(an, account, dir, state.dispositions())
 
+    app.get("/api/accounts/{account:path}")(account_detail)
+
     @app.get("/api/cases/{case_id}")
-    def case_detail(case_id: str):
+    def case_detail(case_id: str, member: str | None = None):
         an = state.require()
         try:
             c = an.cases.case(case_id)
@@ -368,11 +389,20 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
         role_order = {"ORIGIN": 0, "HUB": 1, "COLLECTOR": 2, "DISTRIBUTOR": 3, "RELAY": 4, "POOLED": 5,
                       "SINK": 6, "COUNTERPARTY": 7}
         members.sort(key=lambda m: (role_order.get(m["role"], 9), -m["score"], m["id"]))
-        timeline = [txn_row(an, t) for t in sorted(c.edges, key=lambda t: (an.ds.txns[t].ts, t))]
+        # the timeline is bounded; `timeline_total` says how many case transactions there are, and `member`
+        # narrows it to the case transactions of one member (so a selected member's flows are never cut off)
+        if member is not None and member not in c.members:
+            raise HTTPException(404, f"{member} is not a member of {case_id}")
+        edges = c.edges if member is None else [t for t in c.edges
+                                                 if member in (an.ds.txns[t].sender, an.ds.txns[t].receiver)]
+        timeline = [txn_row(an, t) for t in sorted(edges, key=lambda t: (an.ds.txns[t].ts, t))]
         metrics = c.metrics if labelled else {**c.metrics, "value_from_origins": None}
         return {"id": c.id, "members": members, "metrics": metrics, "families": fams,
-                "origins": c.origins if labelled else [], "timeline": timeline[:200],
+                "origins": c.origins if labelled else [], "timeline": timeline[:CASE_TIMELINE_LIMIT],
+                "timeline_total": len(timeline), "timeline_member": member,
                 "confirmed": sum(1 for m in members if m["status"] == "CONFIRMED"),
+                "confirmed_flagged": sum(1 for m in members if m["flagged"] and m["status"] == "CONFIRMED"),
+                "decided_not_flagged": sum(1 for m in members if not m["flagged"] and m["status"] != "OPEN"),
                 "flagged": sum(1 for m in members if m["flagged"])}
 
     @app.get("/api/cases/{case_id}/network")
@@ -390,6 +420,7 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
         """Considered-but-not-scored activity. `kind` is a comma list; `counts` are per kind before
         the kind filter, so the UI can show every available reason alongside the filtered list."""
         an = state.require()
+        disp = state.dispositions()
         kinds = set(kind.split(",")) if kind else None
         ql = q.lower() if q else None
         out, counts = [], {}
@@ -404,10 +435,10 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
                 if kinds and o["kind"] not in kinds:
                     continue
                 out.append({"account": a, "flagged": r.flagged, "severity": r.severity, "score": r.score,
-                            "role": an.role(a), **o})
+                            "role": an.role(a), "status": disp.get(a, {}).get("status", "OPEN"), **o})
         return {"items": out[offset:offset + limit], "total": len(out), "counts": counts}
 
-    @app.post("/api/accounts/{account}/disposition")
+    @app.post("/api/accounts/{account:path}/disposition")
     def disposition(account: str, body: DispositionBody):
         an = state.require()
         account_or_404(an, account)

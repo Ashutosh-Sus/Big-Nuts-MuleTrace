@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronRight, ShieldOff, Users } from "lucide-react";
 import { api, type ObservationRow } from "../api";
 import { useApp, useLoad } from "../state";
-import { Empty, ErrorBox, RoleBadge, SeverityBadge, Spinner } from "../components/Badges";
+import { Empty, ErrorBox, RoleBadge, SeverityBadge, Spinner, StatusBadge } from "../components/Badges";
 import { OBS_LABEL } from "../format";
 
 // Reasons an account was considered and set aside. NO_PATTERN ("nothing notable") is available but off by default.
@@ -102,9 +102,9 @@ export default function Reviewed() {
                   <Fragment key={r.key}>
                     <tr className={many ? "cursor-pointer hover:bg-sunken/70" : ""}
                       onClick={many ? () => setExpanded(open ? null : r.key) : undefined}>
-                      <td className="font-mono text-[13px] font-semibold">
+                      <td className="font-mono text-[13px] font-semibold [overflow-wrap:anywhere]">
                         {many ? (
-                          <button className="flex items-center gap-1" aria-expanded={open}>
+                          <button type="button" className="flex items-center gap-1 py-1" aria-expanded={open}>
                             {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}<Users size={14} /> {r.accounts.length} accounts
                           </button>
                         ) : <Link to={`/account/${encodeURIComponent(one.account)}`} className="link">{one.account}</Link>}
@@ -114,7 +114,7 @@ export default function Reviewed() {
                       <td>
                         {many ? <Outcome rows={r.accounts} /> : (
                           <span className="flex flex-wrap items-center gap-1"><SeverityBadge severity={one.severity} score={one.flagged ? one.score : undefined} />
-                            <RoleBadge role={one.role} /></span>
+                            <RoleBadge role={one.role} />{one.status !== "OPEN" && <StatusBadge status={one.status} />}</span>
                         )}
                       </td>
                     </tr>
@@ -124,6 +124,7 @@ export default function Reviewed() {
                           <Link key={o.account} to={`/account/${encodeURIComponent(o.account)}`}
                             className="rounded border border-line bg-raised px-2 py-0.5 font-mono text-xs link">
                             {o.account}{o.flagged && <span className="ml-1 text-high-ink">· flagged</span>}
+                            {o.status !== "OPEN" && <span className="ml-1 text-ink2">· {o.status.toLowerCase()}</span>}
                           </Link>))}</div>
                       </td></tr>
                     )}
@@ -146,6 +147,11 @@ export default function Reviewed() {
 
 function Outcome({ rows }: { rows: ObservationRow[] }) {
   const flagged = rows.filter((o) => o.flagged).length;
-  if (!flagged) return <SeverityBadge severity={null} />;
-  return <span className="text-2xs font-semibold text-ink2">{flagged} of {rows.length} flagged on other evidence</span>;
+  const decided = rows.filter((o) => o.status !== "OPEN").length;
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {flagged ? <span className="text-2xs font-semibold text-ink2">{flagged} of {rows.length} flagged on other evidence</span> : <SeverityBadge severity={null} />}
+      {decided > 0 && <span className="text-2xs text-ink2">· {decided} with an analyst decision</span>}
+    </span>
+  );
 }

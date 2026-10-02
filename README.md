@@ -89,6 +89,7 @@ rejected individually and listed in the ingestion report.
 
 ```sh
 backend/.venv/bin/python -m pytest -q backend/tests
+cd frontend && npm test        # console logic: search, evidence selection, decisions, graph state, links, layout
 ```
 
 Covers flow-engine invariants (conservation, determinism, row-order independence, same-timestamp

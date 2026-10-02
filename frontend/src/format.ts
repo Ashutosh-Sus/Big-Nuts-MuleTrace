@@ -62,8 +62,17 @@ export function date(ts: number | null | undefined): string {
   const d = local(ts);
   return `${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
-export function wallTime(epochSeconds: number): string {
-  return new Date(epochSeconds * 1000).toLocaleString();
+/** When an analyst recorded something: same IST style as every other time in the console, with the year. */
+export function auditTime(epochSeconds: number): string {
+  return `${date(epochSeconds)} ${clock(epochSeconds)} IST`;
+}
+
+/** A time window: "25 Mar 10:01–13:34" within a day, "09 Mar 00:28 – 31 Mar 01:03" across days. */
+export function timeRange(start: number | null | undefined, end: number | null | undefined): string {
+  if (start == null || end == null) return "—";
+  const a = local(start), b = local(end);
+  const sameDay = a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+  return sameDay ? `${dateTime(start)}–${clock(end)}` : `${dateTime(start)} – ${dateTime(end)}`;
 }
 
 export function duration(seconds: number | null | undefined): string {

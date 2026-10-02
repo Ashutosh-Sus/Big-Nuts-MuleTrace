@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, ChevronRight, HelpCircle, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { AccountDetail, CaseDetail, SignalView, TxnRow } from "../api";
-import { clock, dateTime, duration, money, moneyShort, OBS_LABEL, PATTERN_LABEL, pct, ROLE_LABEL, RULE_LABEL, wallTime } from "../format";
+import { auditTime, clock, dateTime, duration, money, moneyShort, OBS_LABEL, PATTERN_LABEL, pct, ROLE_LABEL, RULE_LABEL, timeRange } from "../format";
+import { useApp } from "../state";
+import { reasonsFor, type DecisionStatus, type SubmitResult } from "../lib/decision";
+import { flaggedFirst } from "../lib/members";
+import { accountPath, casePath } from "../lib/paths";
 import { RoleBadge, SeverityBadge, StatusBadge, TierBadge } from "./Badges";
 
 const FAMILY_LABEL: Record<string, string> = { FLOW: "Money flow", CIRCULARITY: "Circularity", IDENTITY: "Shared identity" };
@@ -25,7 +29,7 @@ export function ScoreCard({ d }: { d: AccountDetail }) {
         </div>
         <div className="mt-1 text-xs text-muted">
           {d.families.length ? `${d.families.length} independent evidence famil${d.families.length === 1 ? "y" : "ies"}` : "No scored evidence"}
-          {d.exposure > 0 && <> · exposure {money(d.exposure)}</>}
+          {d.exposure > 0 && <> · <span title="Exposure: the largest amount in this account's scored evidence (shown, never scored)">exposure {money(d.exposure)}</span></>}
         </div>
       </div>
       {d.components.length > 0 && (
@@ -104,7 +108,7 @@ export function SignalCard({ s, points, active, onSelect }: { s: SignalView; poi
     if (m.restored) chips.push("linked inside flow case");
   }
   return (
-    <button onClick={onSelect}
+    <button type="button" onClick={onSelect} aria-pressed={active}
       className={`block w-full rounded-md border px-3 py-2.5 text-left transition-colors ${active ? "border-accent bg-accent-soft/60" : "border-line bg-raised hover:border-line-strong"}`}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-sm font-semibold">{PATTERN_LABEL[s.kind] ?? s.label} <TierBadge tier={s.final_tier} /></span>
@@ -118,16 +122,21 @@ export function SignalCard({ s, points, active, onSelect }: { s: SignalView; poi
           {s.path.map((a, i) => <span key={i} className="flex items-center gap-0.5">{i > 0 && <ChevronRight size={10} className="text-muted" />}{a}</span>)}
         </div>
       )}
-      {s.timeline.length > 0 && <div className="mt-1 text-2xs text-muted">{s.timeline.length} transaction{s.timeline.length > 1 ? "s" : ""} · click to trace in graph</div>}
+      <div className="mt-1 text-2xs text-muted">
+        {s.timeline_total > 0 && <>{s.timeline_total} transaction{s.timeline_total > 1 ? "s" : ""} · </>}
+        {active ? "highlighted in the graph · click again to show everything" : "click to highlight in the graph"}</div>
     </button>
   );
 }
 
-export function Timeline({ title, rows, focus }: { title: string; rows: TxnRow[]; focus: string }) {
-  if (!rows.length) return null;
+export function Timeline({ title, rows, focus, total, empty }: { title: string; rows: TxnRow[]; focus: string; total?: number; empty?: string }) {
+  if (!rows.length && !empty) return null;
+  const count = total != null && total > rows.length ? `first ${rows.length} of ${total} transactions, in time order`
+    : `${rows.length} transaction${rows.length === 1 ? "" : "s"}`;
   return (
     <section className="card">
-      <div className="card-h"><h2 className="card-t">What happened · {title}</h2><span className="text-xs text-muted">times in IST</span></div>
+      <div className="card-h"><h2 className="card-t">What happened · {title}</h2><span className="text-right text-xs text-muted">{count} · times in IST</span></div>
+      {!rows.length && <div className="px-4 py-6 text-sm text-muted">{empty}</div>}
       <ol className="relative max-h-[340px] overflow-auto px-4 py-3">
         {rows.map((r, i) => {
           const prev = i > 0 ? rows[i - 1].ts : null;
@@ -140,7 +149,7 @@ export function Timeline({ title, rows, focus }: { title: string; rows: TxnRow[]
                 <div className="text-2xs text-muted">{dateTime(r.ts).slice(0, 6)}{prev != null && r.ts - prev > 0 ? ` · +${duration(r.ts - prev)}` : ""}</div>
               </div>
               <div className="min-w-0 text-sm">
-                <div><span className={`font-mono ${r.sender === focus ? "font-bold" : ""}`}>{r.sender}</span>
+                <div className="[overflow-wrap:anywhere]"><span className={`font-mono ${r.sender === focus ? "font-bold" : ""}`}>{r.sender}</span>
                   <ArrowRight size={12} className="mx-1 inline text-muted" />
                   <span className={`font-mono ${r.receiver === focus ? "font-bold" : ""}`}>{r.receiver}</span></div>
                 <div className="text-xs text-ink2"><span className="num font-semibold text-ink">{money(r.amount)}</span>
@@ -172,39 +181,62 @@ export function WhyNot({ d }: { d: AccountDetail }) {
   );
 }
 
-const CONFIRM_REASONS = ["Rapid layering confirmed", "Linked to confirmed case", "Customer unable to explain flows"];
-const CLEAR_REASONS = ["Known business activity", "Customer verified", "Possible victim — referred to support"];
-
 export function DispositionPanel({ d, busy, onDecide }: {
-  d: AccountDetail; busy: boolean; onDecide: (status: string, note: string) => void;
+  d: AccountDetail; busy: boolean; onDecide: (status: string, note: string) => Promise<SubmitResult>;
 }) {
+  const { analyst } = useApp();
   const [note, setNote] = useState("");
-  const status = d.disposition.status;
+  const [err, setErr] = useState<string | null>(null);
+  const status = d.disposition.status as DecisionStatus;
+  const reasons = reasonsFor(status);
+  // the note is cleared only once the decision is saved; a failure keeps it and says why
+  const run = async (to: string) => {
+    setErr(null);
+    const r = await onDecide(to, note);
+    if (r.ok) setNote(""); else setErr(r.error);
+  };
+  const chips = (label: string, list: string[]) => list.length > 0 && (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="mr-1 text-2xs text-muted">{label}</span>
+      {list.map((r) => <button key={r} type="button" className={`chip ${note === r ? "chip-on" : ""}`} onClick={() => setNote(r)}>{r}</button>)}
+    </div>
+  );
   return (
     <section className="card">
       <div className="card-h"><h2 className="card-t">Analyst decision</h2><StatusBadge status={status} /></div>
       <div className="space-y-2.5 p-4">
+        {!d.flagged && <p className="text-xs leading-relaxed text-ink2">This account is not flagged. A decision is kept in its audit
+          trail and listed on the Overview; the account does not enter the queue.</p>}
         <textarea className="input h-16 w-full resize-none" placeholder="Note for the audit trail (recommended)"
-          value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
-        <div className="flex flex-wrap gap-1">
-          {(status === "CONFIRMED" ? CLEAR_REASONS : CONFIRM_REASONS.concat(CLEAR_REASONS)).map((r) => (
-            <button key={r} className="chip" onClick={() => setNote(r)}>{r}</button>))}
+          aria-label="Note for the audit trail" value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
+        <div className="space-y-1">
+          {chips("Confirm:", reasons.confirm)}
+          {chips("Clear:", reasons.clear)}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn border-high-fill bg-high-fill text-on-high hover:bg-high-ink" disabled={busy || status === "CONFIRMED"}
-            onClick={() => { onDecide("CONFIRMED", note); setNote(""); }}><ShieldAlert size={15} /> Confirm</button>
-          <button className="btn border-good bg-good-soft text-good-ink hover:bg-good/20" disabled={busy || status === "CLEARED"}
-            onClick={() => { onDecide("CLEARED", note); setNote(""); }}><ShieldCheck size={15} /> Clear</button>
-          {status !== "OPEN" && <button className="btn btn-ghost" disabled={busy} onClick={() => { onDecide("OPEN", note); setNote(""); }}>Reopen</button>}
+          <button type="button" className="btn border-high-fill bg-high-fill text-on-high hover:bg-high-ink" disabled={busy || status === "CONFIRMED"}
+            onClick={() => run("CONFIRMED")}><ShieldAlert size={15} /> Confirm</button>
+          <button type="button" className="btn border-good bg-good-soft text-good-ink hover:bg-good/20" disabled={busy || status === "CLEARED"}
+            onClick={() => run("CLEARED")}><ShieldCheck size={15} /> Clear</button>
+          {status !== "OPEN" && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run("OPEN")}>Reopen</button>}
         </div>
+        {busy && <div className="text-xs text-muted animate-pulse">Saving decision…</div>}
+        {err && (
+          <div role="alert" className="rounded-md border border-high/40 bg-high-soft px-3 py-2 text-xs text-high-ink">
+            <b>The decision was not saved.</b> {err}. Your note is kept — try again.
+          </div>
+        )}
+        <div className="text-2xs text-muted">Recorded as <b className="text-ink2">{analyst.trim() || "analyst"}</b> (name at the top of the page)</div>
         {d.audit.length > 0 && (
           <div className="border-t border-line pt-2">
             <div className="label mb-1">Audit trail</div>
             <ul className="max-h-40 space-y-1.5 overflow-auto">
               {d.audit.map((a) => (
-                <li key={a.id} className="text-xs">
-                  <span className="text-muted">{wallTime(a.at)}</span> · <b>{a.analyst}</b> {a.from_status?.toLowerCase()} → <b>{a.to_status?.toLowerCase()}</b>
-                  {a.note && <div className="text-ink2">“{a.note}”</div>}
+                <li key={a.id} className="text-xs [overflow-wrap:anywhere]">
+                  <span className="text-muted">{auditTime(a.at)}</span> · <b>{a.analyst}</b>{" "}
+                  {a.action === "RESET" && <span className="text-ink2">demo reset: </span>}
+                  {a.from_status?.toLowerCase()} → <b>{a.to_status?.toLowerCase()}</b>
+                  {a.note && a.action !== "RESET" && <div className="text-ink2">“{a.note}”</div>}
                 </li>
               ))}
             </ul>
@@ -218,28 +250,33 @@ export function DispositionPanel({ d, busy, onDecide }: {
 export function CaseCard({ c, focus }: { c: CaseDetail; focus: string }) {
   const m = c.metrics;
   const fam = c.families.map((f) => FAMILY_LABEL[f] ?? f).join(" · ");
+  const others = c.decided_not_flagged > 0 ? `${c.decided_not_flagged} decision${c.decided_not_flagged > 1 ? "s" : ""} on not-flagged members` : "";
   return (
     <section className="card">
       <div className="card-h">
         <h2 className="card-t">Connected case · {c.id}</h2>
-        <Link to={`/case/${c.id}`} className="link text-xs">Open case</Link>
+        <Link to={casePath(c.id)} className="link py-1 text-xs">Open case</Link>
       </div>
       <div className="grid grid-cols-2 gap-2 px-4 py-3 text-sm">
         <div><div className="label">Accounts</div><span className="num">{m.accounts}</span> <span className="text-xs text-muted">({c.flagged} flagged)</span></div>
         <div><div className="label">Value from origins</div><span className="num">{moneyShort(m.value_from_origins)}</span></div>
-        <div><div className="label">Window</div><span className="num">{clock(m.start)}–{clock(m.end)}</span> <span className="text-xs text-muted">{m.start && m.end ? duration(m.end - m.start) : ""}</span></div>
+        <div className="col-span-2"><div className="label">Window</div><span className="num">{timeRange(m.start, m.end)}</span> <span className="text-xs text-muted">{m.start && m.end ? `(${duration(m.end - m.start)})` : ""}</span></div>
         <div><div className="label">Median dwell</div><span className="num">{duration(m.median_dwell_seconds)}</span></div>
         <div className="col-span-2"><div className="label">Evidence families</div>{fam || "—"}</div>
-        <div className="col-span-2 flex items-center gap-1.5 text-xs text-ink2">
-          <CheckCircle2 size={13} className={c.confirmed ? "text-high" : "text-muted"} /> {c.confirmed} of {c.flagged} flagged members confirmed
-        </div>
-        {c.flagged === 0 && <div className="col-span-2 text-xs text-muted">No member flagged — roles are not assigned.</div>}
+        {c.flagged > 0 ? (
+          <div className="col-span-2 flex items-center gap-1.5 text-xs text-ink2">
+            <CheckCircle2 size={13} className={c.confirmed_flagged ? "text-high" : "text-muted"} />
+            {c.confirmed_flagged} of {c.flagged} flagged members confirmed{others && ` · ${others}`}
+          </div>
+        ) : (
+          <div className="col-span-2 text-xs text-muted">No member flagged — roles are not assigned.{others && ` ${others}.`}</div>
+        )}
       </div>
       <ul className="max-h-56 divide-y divide-line overflow-auto border-t border-line">
-        {c.members.map((mem) => (
+        {flaggedFirst(c.members).map((mem) => (
           <li key={mem.id}>
-            <Link to={`/account/${mem.id}`} className={`flex items-center justify-between gap-2 px-4 py-1.5 text-sm hover:bg-sunken ${mem.id === focus ? "bg-accent-soft/50" : ""}`}>
-              <span className="font-mono text-[13px]">{mem.id}</span>
+            <Link to={accountPath(mem.id)} className={`flex items-center justify-between gap-2 px-4 py-1.5 text-sm hover:bg-sunken ${mem.id === focus ? "bg-accent-soft/50" : ""}`}>
+              <span className="min-w-0 font-mono text-[13px] [overflow-wrap:anywhere]">{mem.id}</span>
               <span className="flex items-center gap-1.5">
                 {mem.role && <span className="text-2xs text-muted">{ROLE_LABEL[mem.role] ?? mem.role}</span>}
                 {mem.status !== "OPEN" && <StatusBadge status={mem.status} />}

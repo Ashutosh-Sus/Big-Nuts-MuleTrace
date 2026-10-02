@@ -55,4 +55,4 @@ Set the analyst name (top right). Have a second laptop / recording as backup.
 
 - Page blank → `python run.py` again; the database keeps decisions.
 - Data looks changed → **Data → Reset demo**.
-- Graph too busy → *Suspicious flows only*, hops 1, *Fit*.
+- Graph too busy → *Suspicious flows only*, hops 1, *Fit all*, or *Full screen*.
