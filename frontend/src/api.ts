@@ -85,6 +85,10 @@ export interface CaseListItem {
   decided_not_flagged: number; fully_confirmed: boolean;
 }
 
+export interface CaseSummary {
+  id: string; lines: { kind: string; label: string; text: string }[]; facts: Record<string, any>;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public body?: any) { super(message); }
 }
@@ -128,6 +132,7 @@ export const api = {
   cases: () => req<{ items: CaseListItem[]; total: number; unflagged_cases: number }>("/api/cases"),
   caseDetail: (id: string, member?: string | null) => req<CaseDetail>(`/api/cases/${encodeURIComponent(id)}` +
     (member ? `?member=${encodeURIComponent(member)}` : "")),
+  caseSummary: (id: string) => req<CaseSummary>(`/api/cases/${encodeURIComponent(id)}/summary`),
   caseNetwork: (id: string) => req<GraphData>(`/api/cases/${encodeURIComponent(id)}/network`),
   observations: (params: Record<string, string>) => req<ObservationList>(
     "/api/observations?" + new URLSearchParams(params)),

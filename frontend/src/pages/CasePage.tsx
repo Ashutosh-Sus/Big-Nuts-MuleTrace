@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { api } from "../api";
@@ -16,6 +16,7 @@ export default function CasePage() {
   const { version, theme } = useApp();
   const { data: c, error } = useLoad(() => api.caseDetail(id), [id, version]);
   const { data: g, error: graphErr } = useLoad(() => api.caseNetwork(id), [id, version]);
+  const { data: summary } = useLoad(() => api.caseSummary(id), [id, version]);
   const [picked, setPicked] = useState<string | null>(null);
   const [showIdentity, setShowIdentity] = useState(true);
   // selecting a member shows that member's case transactions (the full case timeline is bounded)
@@ -36,7 +37,7 @@ export default function CasePage() {
     `${m.accounts} accounts`, `${c.flagged} flagged`,
     c.flagged > 0 ? `${c.confirmed_flagged} of ${c.flagged} flagged confirmed` : null,
     c.decided_not_flagged > 0 ? `${c.decided_not_flagged} decision${c.decided_not_flagged > 1 ? "s" : ""} on not-flagged members` : null,
-    m.value_from_origins != null ? `${moneyShort(m.value_from_origins)} entered from likely origins` : null,
+    m.value_from_origins != null && c.origins.length > 0 ? `${moneyShort(m.value_from_origins)} entered from likely origins` : null,
     m.start && m.end ? `${timeRange(m.start, m.end)} (${duration(m.end - m.start)})` : null,
     m.median_dwell_seconds != null ? `median dwell ${duration(m.median_dwell_seconds)}` : null,
   ].filter(Boolean);
@@ -49,6 +50,20 @@ export default function CasePage() {
         <p className="text-sm text-muted">{facts.join(" · ")}</p>
         {c.flagged === 0 && <p className="text-xs text-muted">No member flagged — roles are not assigned.</p>}
       </div>
+      {summary && summary.id === c.id && summary.lines.length > 0 && (
+        <section className="card" aria-labelledby="case-summary-title">
+          <div className="card-h"><h2 id="case-summary-title" className="card-t">Money-flow summary</h2>
+            <span className="text-xs text-muted">from the case's computed data</span></div>
+          <dl className="grid grid-cols-[minmax(0,1fr)] gap-x-4 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[84px_minmax(0,1fr)] sm:gap-y-2">
+            {summary.lines.map((l) => (
+              <Fragment key={l.kind}>
+                <dt className="label pt-0.5">{l.label}</dt>
+                <dd className="mb-1 leading-relaxed text-ink2 [overflow-wrap:anywhere] sm:mb-0">{l.text}</dd>
+              </Fragment>
+            ))}
+          </dl>
+        </section>
+      )}
       <section className="card">
         <div className="card-h flex-wrap">
           <h2 className="card-t">Case network</h2>

@@ -21,6 +21,7 @@ from .flow import TIER_NAMES
 from .ingest import IngestError, parse_csv
 from .pipeline import Analysis, analyze
 from .store import Store
+from .summary import case_summary
 
 ROOT = Path(__file__).resolve().parents[2]
 DIST = ROOT / "frontend" / "dist"
@@ -443,6 +444,15 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
         except StopIteration:
             raise HTTPException(404, f"Unknown case {case_id}")
         return net.case_network(an, c, state.dispositions())
+
+    @app.get("/api/cases/{case_id}/summary")
+    def case_summary_view(case_id: str):
+        an = state.require()
+        try:
+            c = an.cases.case(case_id)
+        except StopIteration:
+            raise HTTPException(404, f"Unknown case {case_id}")
+        return case_summary(an, c)
 
     @app.get("/api/observations")
     def observations(kind: str | None = None, flagged: bool | None = None, q: str | None = None,

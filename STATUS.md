@@ -1,11 +1,29 @@
 # MuleTrace — Status
 
-_Updated after: T24 cases list (no detection change). V1 baseline: tag `v1.0.0-finalized`._
+_Updated after: T25 case money-flow summary (no detection change). V1 baseline: tag `v1.0.0-finalized`._
 
 ## Complete
-- T0–T24 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
+- T0–T25 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## T25 — case money-flow summary (no detection change)
+- Gap: the Case page showed members, graph and timeline, but how money entered, moved and left had to be read off
+  the graph.
+- `summary.py` + `GET /api/cases/{id}/summary`: four fixed-template lines — Entry (likely origins, the case
+  transactions they sent, when), Movement (case roles, scored patterns by number of flagged members, median dwell),
+  Exit (sink accounts and the case transactions they received; pooled members), Period (all case transactions,
+  window, total value). Every figure is read from the case (roles, case transactions, scored signals, metrics) and
+  returned under `facts`; nothing is recomputed in the engine and `/api/cases/{id}` is unchanged.
+- Wording rules: roles only for a case with a flagged member (§7.2: otherwise only Period, and "roles are not
+  assigned"); likely origin, never victim; no origin → "No likely origin account identified, so where these funds
+  entered is not visible in this case" (CASE-04, the circular ring); no sink → "not seen coming to rest in one
+  account"; the total of case transactions is "transaction volume, not an amount lost"; sequence, never cause;
+  fallback engine: "Holding times are not traced". Counts use every case transaction, not the 200-row timeline.
+- Case page: the header no longer shows "₹0 entered from likely origins" for a case with no likely origin.
+- Tests: `test_case_summary.py` (9: hero, no-origin circular case, pass-through / fan-out, unflagged case, fallback,
+  253-transaction case with a 200-row timeline, every demo case checked field by field against case detail and
+  account signals with a banned-wording check, determinism + row order, existing case views unchanged / 404).
 
 ## T24 — cases list (no detection change)
 - Gap: cases were reachable only from an account's case card; the Overview "Suspicious cases" count led nowhere.
@@ -185,7 +203,7 @@ on demo, fallback engine and the 50k benchmark.
 - ARCHITECTURE §6.1/§7.1/§7.2/§12 synced with implemented clarifications (no behaviour change).
 
 ## Tests
-- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **126 passed**.
+- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **135 passed**.
 - `cd frontend; npm test` → **11 passed** (search race, evidence toggle, decision failure / reasons, trace merge guard,
   status patch, link encoding, fan-out wrap, IST times, cases-list wording).
 - Ingestion edge cases; flow gate (conservation, determinism, shuffle, same-timestamp, expiry, pooled boundary,
