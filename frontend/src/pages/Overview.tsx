@@ -113,7 +113,10 @@ export default function Overview() {
       <section className="card">
         <div className="card-h">
           <h2 className="card-t flex items-center gap-2"><ShieldOff size={15} className="text-good" /> Reviewed and not flagged</h2>
-          <span className="text-xs text-muted">{s.reviewed_total} accounts looked suspicious at first glance — each was set aside for a stated reason</span>
+          <span className="flex flex-wrap items-center gap-3 text-xs text-muted">
+            {s.reviewed_total} accounts looked suspicious at first glance — each was set aside for a stated reason
+            <Link to="/reviewed" className="link whitespace-nowrap">View all</Link>
+          </span>
         </div>
         <ul className="grid gap-px bg-line md:grid-cols-2">
           {s.reviewed_not_flagged.map((r) => (

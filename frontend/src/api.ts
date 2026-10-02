@@ -19,6 +19,10 @@ export interface QueueItem {
   cases: string[]; size?: number; members?: string[];
 }
 export interface Observation { kind: string; text: string; account?: string; episode?: string }
+export interface ObservationRow extends Observation {
+  account: string; flagged: boolean; severity: Severity | null; score: number; role: string | null;
+}
+export interface ObservationList { items: ObservationRow[]; total: number; counts: Record<string, number> }
 export interface Summary extends DatasetView {
   kpis: { accounts: number; transactions: number; flagged: number; cases: number; value_total: number;
     exposure: number; flow_links: number; time_start: number; time_end: number };
@@ -115,8 +119,8 @@ export const api = {
       new URLSearchParams({ hops: String(hops), suspicious_only: String(suspiciousOnly), min_amount: String(minAmount) })),
   trace: (id: string, dir: "fwd" | "back") => req<GraphData>(`/api/accounts/${encodeURIComponent(id)}/trace?dir=${dir}`),
   caseDetail: (id: string) => req<CaseDetail>(`/api/cases/${encodeURIComponent(id)}`),
-  observations: (kind?: string) => req<{ items: (Observation & { account: string })[]; total: number }>(
-    "/api/observations" + (kind ? `?kind=${kind}` : "")),
+  observations: (params: Record<string, string>) => req<ObservationList>(
+    "/api/observations?" + new URLSearchParams(params)),
   dispose: (id: string, status: string, note: string, analyst: string) =>
     req<{ disposition: any; audit: AuditRow[] }>(`/api/accounts/${encodeURIComponent(id)}/disposition`, json({ status, note, analyst })),
   config: () => req<{ config: Record<string, any>; hash: string; engine: string }>("/api/config"),

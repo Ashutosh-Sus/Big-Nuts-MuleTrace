@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
-import { Database, LayoutDashboard, ListChecks, Moon, Search, Sun, UserRound } from "lucide-react";
+import { Database, LayoutDashboard, ListChecks, Moon, Search, ShieldOff, Sun, UserRound } from "lucide-react";
 import { api, type Severity } from "./api";
 import { SeverityBadge } from "./components/Badges";
 import { useApp } from "./state";
@@ -9,6 +9,7 @@ import Queue from "./pages/Queue";
 import DataPage from "./pages/DataPage";
 import Investigate from "./pages/Investigate";
 import CasePage from "./pages/CasePage";
+import Reviewed from "./pages/Reviewed";
 
 function Brand() {
   return (
@@ -68,16 +69,17 @@ function AccountSearch() {
 export default function App() {
   const { dataset, analyst, setAnalyst, theme, toggleTheme } = useApp();
   const navCls = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium ${isActive ? "bg-sunken text-ink" : "text-ink2 hover:text-ink hover:bg-sunken/60"}`;
+    `flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 sm:px-2.5 text-[13px] font-medium ${isActive ? "bg-sunken text-ink" : "text-ink2 hover:text-ink hover:bg-sunken/60"}`;
   const loaded = dataset?.dataset != null;
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1680px] flex-wrap items-center gap-3 px-4 py-2">
           <Brand />
-          <nav className="flex items-center gap-1">
+          <nav className="flex flex-wrap items-center gap-1">
             <NavLink to="/" end className={navCls}><LayoutDashboard size={15} /> Overview</NavLink>
             <NavLink to="/queue" className={navCls}><ListChecks size={15} /> Queue</NavLink>
+            <NavLink to="/reviewed" className={navCls}><ShieldOff size={15} /> Not flagged</NavLink>
             <NavLink to="/data" className={navCls}><Database size={15} /> Data</NavLink>
           </nav>
           <div className="ml-auto flex flex-1 items-center justify-end gap-3">
@@ -99,6 +101,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={loaded ? <Overview /> : <Navigate to="/data" replace />} />
             <Route path="/queue" element={loaded ? <Queue /> : <Navigate to="/data" replace />} />
+            <Route path="/reviewed" element={loaded ? <Reviewed /> : <Navigate to="/data" replace />} />
             <Route path="/data" element={<DataPage />} />
             <Route path="/account/:id" element={<Investigate />} />
             <Route path="/case/:id" element={<CasePage />} />

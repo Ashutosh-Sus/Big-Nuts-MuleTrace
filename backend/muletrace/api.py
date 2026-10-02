@@ -351,15 +351,27 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
                 "flagged": sum(1 for m in members if m["flagged"])}
 
     @app.get("/api/observations")
-    def observations(kind: str | None = None, limit: int = 200):
+    def observations(kind: str | None = None, flagged: bool | None = None, q: str | None = None,
+                     limit: int = Query(200, ge=1, le=5000), offset: int = Query(0, ge=0)):
+        """Considered-but-not-scored activity. `kind` is a comma list; `counts` are per kind before
+        the kind filter, so the UI can show every available reason alongside the filtered list."""
         an = state.require()
-        out = []
+        kinds = set(kind.split(",")) if kind else None
+        ql = q.lower() if q else None
+        out, counts = [], {}
         for a in sorted(an.results):
+            r = an.results[a]
+            if flagged is not None and r.flagged != flagged:
+                continue
+            if ql and ql not in a.lower():
+                continue
             for o in an.observations(a):
-                if kind and o["kind"] != kind:
+                counts[o["kind"]] = counts.get(o["kind"], 0) + 1
+                if kinds and o["kind"] not in kinds:
                     continue
-                out.append({"account": a, **o})
-        return {"items": out[:limit], "total": len(out)}
+                out.append({"account": a, "flagged": r.flagged, "severity": r.severity, "score": r.score,
+                            "role": an.role(a), **o})
+        return {"items": out[offset:offset + limit], "total": len(out), "counts": counts}
 
     @app.post("/api/accounts/{account}/disposition")
     def disposition(account: str, body: DispositionBody):

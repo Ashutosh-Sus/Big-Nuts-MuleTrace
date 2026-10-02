@@ -30,6 +30,7 @@ Set the analyst name (top right). Have a second laptop / recording as backup.
    panel shows which optional fields exist. "Bad data doesn't break us."
 3. **Overview (0:40–1:00).** 29 flagged of 270, 5 high, three connected cases. Point at
    **Reviewed and not flagged** — "the system tells you what it chose *not* to flag, and why."
+   *View all* opens the full **Not flagged** list, filterable by reason.
 4. **Queue → `AC5530` (1:00–1:15).** Top of the queue. Primary reason in plain language.
 5. **Why this account (1:15–1:35).** Score card: money flow 60 (pass-through 35, hub 5, corroborated
    layering 25, family cap), circular flow 20, shared device 15. "Every point is a rule plus

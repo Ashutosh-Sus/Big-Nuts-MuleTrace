@@ -1,11 +1,22 @@
 # MuleTrace — Status
 
-_Updated after: relationship-strength amendment (v1.2.1) + release gate rerun. State: READY TO PUSH (awaiting approval). Nothing pushed._
+_Updated after: T20 "Reviewed and not flagged" page (build phase after release; core untouched). Nothing pushed._
 
 ## Complete
-- T0–T19 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
+- T0–T20 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## T20 — "Reviewed and not flagged" page (no detection change)
+- Gap: `/api/observations` (§10) existed but no screen used it; Overview showed 12 of N set-aside accounts with
+  no way to see the rest.
+- API: `/api/observations` gains `flagged`, `q`, comma-list `kind`, `offset`; each item carries the account's
+  flagged / severity / score / role; `counts` per kind (before the kind filter). Old parameters unchanged.
+- UI: `/reviewed` ("Not flagged" in the nav; "View all" on the Overview card). Filters by reason (No pattern off
+  by default), scope (not flagged / all), account; identical statements (e.g. office IP on 23 accounts) collapse
+  into one expandable row. Nav padding tightened below `sm` and the nav may wrap: no horizontal scroll at 375 px
+  ("Data" drops to a second row at exactly 375 px).
+- Test: `test_observations_filters_and_counts`.
 
 ## Amendment v1.2.1 — relationship strength (closes relationship seeding)
 - Problem: a ₹1,000 victim → mule payment 14 days earlier made the pair ESTABLISHED, so the ₹3 L transfer was
@@ -29,10 +40,10 @@ _Updated after: relationship-strength amendment (v1.2.1) + release gate rerun. S
 - ARCHITECTURE §6.1/§7.1/§7.2/§12 synced with implemented clarifications (no behaviour change).
 
 ## Tests
-- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **81 passed**.
+- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **82 passed**.
 - Ingestion edge cases; flow gate (conservation, determinism, shuffle, same-timestamp, expiry, pooled boundary,
   exact trace); dataset-wide conservation (every link, every account's forward/back trace at 2 and 8 hops);
-  S1–S4, A1–A15, G1–G14; R1–R6 relationship strength; demo; API + persistence; fallback (G12); trace cap (G10).
+  S1–S4, A1–A15, G1–G14; R1–R6 relationship strength; demo; API + persistence; observations filters; fallback (G12); trace cap (G10).
 
 ## Performance (50 000 rows, 4 000 accounts)
 - Ingestion 0.6–0.9 s · analysis 1.8–2.4 s · upload endpoint 3.4 s · summary 0.35 s (61 ms cached)

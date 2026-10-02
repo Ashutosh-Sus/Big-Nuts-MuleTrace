@@ -24,6 +24,7 @@ Status (all tasks complete — see STATUS.md): `[ ]` todo · `[~]` in progress �
 | [x] T17 | Graph component (network + trace mode, role shapes, legend, caps) | T16 | trace edges visibly distinct, labelled FIFO attribution |
 | [x] T18 | Integration + reset + offline check + README | all | fresh clone → `python run.py` → demo script works |
 | [x] T19 | `scripts/evaluate.py` (only if organiser data carries labels) | T10 | precision/recall per pattern |
+| [x] T20 | "Reviewed and not flagged" page on `/api/observations` (§9–§11): reason / scope / account filters, identical statements grouped | T15, T10 | every set-aside account browsable; Overview links to it; 375 px, both themes |
 
 Test catalogue (expected outcomes live in `backend/tests/`):
 S1–S7 baseline · A1–A15 adversarial · G1–G14 audit regressions · R1–R6 relationship strength · conservation · determinism · shuffle.

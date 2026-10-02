@@ -93,3 +93,22 @@ def test_g12_fallback_engine_same_contract(tmp_path):
     t = c.get(f"/api/accounts/{HERO['M2']}/trace?dir=fwd").json()
     assert t["mode"] == "transactions" and "not traced" in t["label"]
     assert c.get("/api/summary").status_code == 200
+
+
+def test_observations_filters_and_counts(client):
+    """§10 /api/observations: suppressed / near-miss activity behind the "Reviewed and not flagged" page."""
+    all_obs = client.get("/api/observations", params={"limit": 5000}).json()
+    unflagged = client.get("/api/observations", params={"flagged": "false", "limit": 5000}).json()
+    assert unflagged["total"] <= all_obs["total"]
+    assert unflagged["items"] and not any(o["flagged"] for o in unflagged["items"])
+    assert sum(unflagged["counts"].values()) == unflagged["total"]       # no kind filter: counts cover all
+    # kind filter narrows items but not counts; comma list accepted
+    two = client.get("/api/observations", params={"flagged": "false", "kind": "POOLED,ORIGIN_ZEROED"}).json()
+    assert {o["kind"] for o in two["items"]} == {"POOLED", "ORIGIN_ZEROED"}
+    assert two["total"] == unflagged["counts"]["POOLED"] + unflagged["counts"]["ORIGIN_ZEROED"]
+    assert two["counts"] == unflagged["counts"]
+    # the demo's set-aside accounts carry their stated reason
+    victim = client.get("/api/observations", params={"q": HERO["V1"].lower()}).json()["items"]
+    assert any(o["account"] == HERO["V1"] and o["kind"] == "ORIGIN_ZEROED" for o in victim)
+    page = client.get("/api/observations", params={"limit": 5, "offset": 5}).json()
+    assert page["items"] == all_obs["items"][5:10]
