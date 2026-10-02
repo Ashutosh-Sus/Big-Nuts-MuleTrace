@@ -13,10 +13,14 @@ audit trail. It runs offline on a single machine: one Python process serves both
 
 ## 2. Problem Statement
 
-Money-mule layering: a fraudulent payment reaches one account and is then moved through several others within
-minutes, each transfer looking ordinary on its own. Investigators are left with thousands of raw transactions and
-no clear view of which accounts form a network, how the money moved through it, or which activity is merely
-routine (payroll, busy merchants, shared office networks).
+**Domain:** Fintech · **Project:** MuleTrace
+
+> A fraud reaches a victim’s account once, but the money is layered through 3–6 accounts within minutes, each
+> transfer looking ordinary. Build MuleTrace, which ingests a transaction CSV, builds an account graph, and flags
+> suspicious structures: fan-in then fan-out within a short window, circular transfers, chains of pass-through
+> accounts that keep near-zero balances, and clusters of new accounts sharing a device, IP or KYC attribute. Each
+> flagged account gets a risk score and a plain-language reason, and an analyst can expand the network around it
+> and mark it confirmed or cleared.
 
 ## 3. Project Description
 
@@ -149,11 +153,10 @@ building the console needs a Node version supported by Vite 5 (18 or newer); the
 Node's TypeScript support and was run on Node 24. Internet access is needed once, to install dependencies.
 
 ```sh
-git clone https://github.com/Ashutosh-Sus/MuleTrace.git
-cd MuleTrace
+git clone https://github.com/Ashutosh-Sus/Big-Nuts-MuleTrace.git
+cd Big-Nuts-MuleTrace
+git checkout feat/cases-list
 ```
-
-*(If the repository has since been renamed on GitHub, use its current URL — the folder name does not matter.)*
 
 **One command** (creates the Python environment, installs dependencies, builds the console once, starts the
 server and opens the browser):
