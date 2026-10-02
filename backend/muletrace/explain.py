@@ -175,13 +175,12 @@ def observations(a, analysis) -> list[dict]:
                 f"Pass-through episode on {f.time(ep.start)} ({f.money(ep.inflow)} in, {f.money(ep.outflow)} out) "
                 f"downgraded {before} → {after} because " + " and ".join(why) + "."), "episode": eid})
 
-    for g in analysis.identity.groups:
-        if a in g.sharers and g.infrastructure:
-            share = len(g.established) / len(g.sharers)
-            obs.append({"kind": "INFRA_ATTRIBUTE", "text": (
-                f"{ {'device': 'Device', 'ip': 'IP address', 'kyc': 'KYC identifier'}[g.attr]} {g.value} is shared by "
-                f"{len(g.sharers)} accounts, {f.pct(share)} of them established — treated as shared infrastructure, "
-                "not as evidence.")})
+    attr_label = {"device": "Device", "ip": "IP address", "kyc": "KYC identifier"}
+    for g in analysis.infra_groups_of(a):
+        share = len(g.established) / len(g.sharers)
+        obs.append({"kind": "INFRA_ATTRIBUTE", "text": (
+            f"{attr_label[g.attr]} {g.value} is shared by {len(g.sharers)} accounts, {f.pct(share)} of them "
+            "established — treated as shared infrastructure, not as evidence.")})
 
     for rec in analysis.reciprocal.get(a, [])[:3]:
         obs.append({"kind": "RECIPROCAL", "text": (

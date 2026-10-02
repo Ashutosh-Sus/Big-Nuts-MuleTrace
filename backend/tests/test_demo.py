@@ -70,6 +70,29 @@ def test_decoys_not_flagged(demo):
     assert not any(an.results[a].flagged for a in office)
 
 
+def test_conservation_across_whole_dataset(demo):
+    """Every link and every trace over the full demo dataset conserves money exactly."""
+    from collections import defaultdict
+    from muletrace.flow import trace
+    _, an = demo
+    txns, fg = an.ds.txns, an.fg
+    by_lot, by_out = defaultdict(int), defaultdict(int)
+    for link in fg.links:
+        assert link.amount > 0 and link.dwell >= 0
+        by_lot[link.in_txn] += link.amount
+        by_out[link.out_txn] += link.amount
+    assert all(v <= txns[i].amount for i, v in by_lot.items())
+    for acc in an.ds.accounts.values():
+        for o in acc.out_txns:
+            assert by_out.get(o, 0) + fg.own_funds[o] == txns[o].amount
+    for acc in an.ds.sorted_accounts():
+        for direction, start in (("fwd", acc.out_txns), ("back", acc.in_txns)):
+            if start:
+                for hops in (2, 8):
+                    tr = trace(an.ds, fg, start, direction, hops)
+                    assert tr.accounted() == tr.total_start(), (acc.id, direction, hops)
+
+
 def test_pattern_coverage(demo):
     _, an = demo
     seen = {k for r in an.results.values() for k, s in r.signals.items() if s.qualifies}

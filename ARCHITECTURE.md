@@ -205,8 +205,9 @@ that tier's conservation. **Episode tier = max(traced tier, window tier).** WEAK
 - Clusters: union-find across qualifying groups. Link strength: device / KYC = STRONG, IP-only = weak.
 - Established sharers of a qualifying group are context members (role CLUSTER_MEMBER), scored only
   if they share a flow case with another member.
-- **Restoration (precedence):** members of an infrastructure group who share a flow case are linked
-  by that attribute anyway.
+- **Restoration (precedence):** flow-active members of an infrastructure group (or established context
+  members) who share a flow case are linked by that attribute anyway. Origins and boundary accounts are
+  never linked this way.
 - IP-only clusters larger than 15 accounts without establishment evidence appear in the queue as
   **one group item**, not one item per account.
 
@@ -216,9 +217,11 @@ that tier's conservation. **Episode tier = max(traced tier, window tier).** WEAK
 
 ### 7.1 Raw cases (stage 7)
 
-Flow-active accounts: raw RELAY / HUB / LAYERED_RECEIPT / ROUND_TRIP ≥ MODERATE. Case edges are
-transactions that carry a structural link at either end and touch a flow-active account, **except**
-edges over an `ESTABLISHED` relationship whose other end is not flow-active (e.g. employer → salary).
+Flow-active accounts: raw RELAY / HUB / LAYERED_RECEIPT / ROUND_TRIP ≥ MODERATE. Case edges are the
+transactions of the episodes and paths that made an account flow-active (episodes ≥ MODERATE, limited to
+outflows inside the episode's tier window; layered-receipt and round-trip transactions) and touch a
+flow-active account, **except** edges over an `ESTABLISHED` relationship whose other end is not flow-active
+(e.g. employer → salary). Historical linked payments outside the suspicious movement never join a case.
 A case is a connected component; non-active members are boundary accounts.
 **Raw corroborated paths:** traced paths through ≥ 3 raw-STRONG relays spanning ≤ 60 min.
 
@@ -230,6 +233,10 @@ A case is a connected component; non-active members are boundary accounts.
 **ORIGIN:** a case member with no case edge into it from another member, whose outflow into the case
 is funded ≥ 50 % by own funds, or ≥ 80 % by ESTABLISHED relationships with non-flow-active accounts,
 or covered by `balance_before`. Pooled accounts are never ORIGIN.
+
+Roles and the possible-victim indicator are displayed only for cases that contain a flagged account
+(pooled accounts always show POOLED); a flow nobody was flagged for does not label its participants.
+LAYERED_RECEIPT is re-evaluated at qualification against final relays, so an ORIGIN never counts as a relay.
 
 ### 7.3 Possible-victim indicator (separate from role)
 
@@ -342,3 +349,9 @@ semantic design tokens; status never conveyed by colour alone.
 - History-based mitigations need ≥ 7 days of data; the first 7 days are warm-up.
 - Cash withdrawals and other-bank legs are invisible; sinks are the edge of observable data.
 - Single currency per dataset.
+- **Prior victim relationship.** If a victim paid the first mule at least 7 days before the fraud, that
+  mule satisfies the ORIGIN rule (§7.2) exactly like a salary-funded victim (G4): it scores 0 and shows the
+  possible-victim indicator, the real victim drops out of the case, and a 3-relay rapid chain loses its
+  corroboration bonus (HIGH → MEDIUM). The rest of the chain and the cash-out account are still flagged and
+  remain one case. Separating the two cases needs a new rule (e.g. relationship history must be commensurate
+  with the new inflow) and is an open amendment, not part of v1.2.

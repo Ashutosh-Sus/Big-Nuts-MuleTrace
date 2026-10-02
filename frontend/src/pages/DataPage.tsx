@@ -32,7 +32,7 @@ export default function DataPage() {
 
   const rep = dataset?.report;
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       <div className="space-y-4">
         <section className="card">
           <div className="card-h"><h2 className="card-t">Load transactions</h2></div>

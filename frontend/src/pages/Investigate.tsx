@@ -167,7 +167,7 @@ export default function Investigate() {
                 <span>Click a node to select · double-click to expand its neighbourhood · scroll to zoom
                   {graph?.truncated && <> · <b className="text-ink2">{graph.hidden_count ?? graph.aggregated_accounts} more accounts not drawn</b> (bounded view)</>}</span>
                 {graph?.accounting && <span>
-                  {money(graph.accounting.start)} traced · kept along the way {money(graph.accounting.retained)}
+                  {money(graph.accounting.start)} traced · {graph.direction === "back" ? "originated from account balances" : "kept along the way"} {money(graph.accounting.retained)}
                   {graph.accounting.stopped_at_pooled > 0 && <> · stopped at pooled {money(graph.accounting.stopped_at_pooled)}</>}
                   {graph.accounting.exact && " · exact"}</span>}
               </div>

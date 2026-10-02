@@ -111,3 +111,5 @@ deterministically by `python scripts/make_demo.py`; **Data → Reset demo** rest
 - Accounts with ≥ 50 counterparties over ≥ 7 days are treated as pooled and are not traced through.
 - Cash withdrawals and other-bank legs are outside the data; sinks are the edge of what is visible.
 - One currency per dataset; no conversion.
+- If a victim paid the first mule at least 7 days before the fraud, that mule is read as the likely origin
+  of the flow (like a victim spending their salary); the rest of the chain and the cash-out are still flagged.

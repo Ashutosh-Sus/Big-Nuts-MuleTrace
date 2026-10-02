@@ -393,6 +393,21 @@ def test_g11_pre_established_ring_gets_no_mitigation():
             assert not an.fg.episodes[eid].mitigations
 
 
+def test_known_limitation_prior_victim_relationship_reads_first_mule_as_origin():
+    """Documented limitation (ARCHITECTURE §12). A victim -> mule relationship older than 7 days makes the
+    first mule satisfy the frozen ORIGIN rule (§7.2), exactly like the protected salary-funded victim (G4).
+    The rest of the network must still be detected; this test pins that floor."""
+    s = Scenario("lim").background()
+    s.tx("V", "G1", 1_000, at(1, 10))                              # small payment 14 days earlier
+    s.chain(["V", "G1", "G2", "G3", "OUT"], 300_000, at(15, 10), 5)
+    an = s.run()
+    assert an.cases.roles["G1"] == "ORIGIN" and not an.results["G1"].flagged     # current behaviour
+    for a in ("G2", "G3"):
+        assert an.results[a].flagged and "RELAY" in kinds(an, a)
+    assert "LAYERED_RECEIPT" in kinds(an, "OUT")
+    assert an.cases.case_of["G2"] == an.cases.case_of["G1"]
+
+
 def test_g13a_established_account_mule_is_high():
     s = Scenario("g13a").background()
     s.account("EMULE", created=BASE - timedelta(days=730))

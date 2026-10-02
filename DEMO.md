@@ -37,7 +37,8 @@ Set the analyst name (top right). Have a second laptop / recording as backup.
 6. **Follow the money (1:35–2:15).** Click *Where money came from* → the victims appear as diamonds
    (likely origins). Click *Where money went* → blue computed flow links ending at the cash-out
    accounts, with traced rupees on each edge and the exact accounting under the graph. Open the
-   **Pass-through** evidence card → the timeline shows 10:02 → 10:05 → 10:11 → 10:15.
+   **Pass-through** evidence card → the timeline shows money arriving at 10:05 and 10:08 and leaving at
+   10:11 and 10:12 (held 3–4 min), then ₹2.4 L circling back at 13:30 and out again at 13:34.
 7. **Who else (2:15–2:30).** Case card: 2 origins, relays, sinks, ₹6 L entered, median dwell. Double-click
    a node to expand the network.
 8. **Decide (2:30–2:45).** Note "Rapid layering confirmed" → **Confirm**. Audit trail updates; the case

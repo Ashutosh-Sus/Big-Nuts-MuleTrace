@@ -40,6 +40,17 @@ class Analysis:
             return r
         return None
 
+    def infra_groups_of(self, a: str) -> list:
+        """Infrastructure attribute groups containing account a (index built once)."""
+        if not hasattr(self, "_infra_index"):
+            idx: dict[str, list] = {}
+            for g in self.identity.groups:
+                if g.infrastructure:
+                    for m in g.sharers:
+                        idx.setdefault(m, []).append(g)
+            self._infra_index = idx
+        return self._infra_index.get(a, [])
+
     def observations(self, a: str) -> list[dict]:
         if a not in self.obs_cache:
             self.obs_cache[a] = explain.observations(a, self)
