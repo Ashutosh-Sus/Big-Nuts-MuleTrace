@@ -46,6 +46,14 @@ def test_hero_victims_are_protected_origins(demo, key):
     assert an.cases.indicator[a]["status"] == "INDICATED"
 
 
+def test_hero_case_is_only_the_suspicious_movement(demo):
+    _, an = demo
+    case = an.cases.case(an.cases.case_of[HERO["M2"]][0])
+    assert sorted(case.origins) == sorted([HERO["V1"], HERO["V2"]])
+    assert case.metrics["end"] - case.metrics["start"] < 6 * 3600
+    assert not any(an.ds.accounts[m].pooled for m in case.members)
+
+
 def test_layered_receipt_does_not_count_origin_as_relay(demo):
     _, an = demo
     for k in ("C1", "C3"):

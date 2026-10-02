@@ -189,15 +189,16 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
         for a in sorted(an.results):
             if an.results[a].flagged:
                 continue
+            best = None
             for o in an.observations(a):
-                if o["kind"] not in priority:
+                if o["kind"] not in priority or (o["kind"] == "INFRA_ATTRIBUTE" and o["text"] in seen_infra):
                     continue
-                if o["kind"] == "INFRA_ATTRIBUTE":
-                    if o["text"] in seen_infra:
-                        continue
-                    seen_infra.add(o["text"])
-                reviewed.append({"account": a, "kind": o["kind"], "text": o["text"]})
-                break
+                if best is None or priority[o["kind"]] < priority[best["kind"]]:
+                    best = o
+            if best:
+                if best["kind"] == "INFRA_ATTRIBUTE":
+                    seen_infra.add(best["text"])
+                reviewed.append({"account": a, "kind": best["kind"], "text": best["text"]})
         # interleave kinds so each kind of false-positive defence is visible
         by_kind: dict[str, list] = {}
         for item in sorted(reviewed, key=lambda x: (priority[x["kind"]], x["account"])):

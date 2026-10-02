@@ -114,7 +114,7 @@ export default function Investigate() {
             <StatusBadge status={d.disposition.status} />
           </div>
           <p className="mt-1 max-w-4xl text-sm text-ink2">{d.flagged ? d.primary_reason :
-            "Not flagged. The panel on the right explains what was considered and why it was set aside."}</p>
+            "Not flagged. “Why this account is not flagged” lists what was considered and why it was set aside."}</p>
         </div>
       </div>
       <IndicatorNote d={d} />

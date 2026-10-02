@@ -48,13 +48,17 @@ def flow_txns(ds: Dataset, fg: FlowGraph, raw: dict) -> set[int]:
 
     Only the suspicious movement forms a case — not every linked payment an account ever made."""
     s: set[int] = set()
+    txns = ds.txns
     for kind in ("RELAY", "HUB"):
         for sig in raw[kind].values():
             for eid in sig.episodes:
                 ep = fg.episodes[eid]
                 if ep.tier in (0, 1):
+                    # only the outflows inside the episode's tier window belong to the suspicious movement
+                    last_in = max(txns[i].ts for i in ep.in_txns)
+                    bound = ds.cfg.tier_dwell[ep.tier]
                     s.update(ep.in_txns)
-                    s.update(ep.out_txns)
+                    s.update(o for o in ep.out_txns if txns[o].ts <= last_in + bound)
     for kind in ("LAYERED_RECEIPT", "ROUND_TRIP"):
         for sig in raw[kind].values():
             if sig.raw_tier in (0, 1):

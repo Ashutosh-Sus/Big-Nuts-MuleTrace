@@ -33,8 +33,10 @@ class Analysis:
 
     def role(self, a: str) -> str | None:
         """Structural role shown to analysts: only within cases that contain a flagged account."""
+        if self.ds.accounts[a].pooled:
+            return "POOLED"
         r = self.cases.roles.get(a)
-        if r in ("POOLED", "CLUSTER_MEMBER") or self.in_flagged_case(a) or self.results[a].flagged:
+        if r == "CLUSTER_MEMBER" or self.in_flagged_case(a) or self.results[a].flagged:
             return r
         return None
 
