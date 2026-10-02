@@ -1,0 +1,24 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# runtime data
+backend/muletrace.db
+backend/muletrace.db-*
+*.sqlite3
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
