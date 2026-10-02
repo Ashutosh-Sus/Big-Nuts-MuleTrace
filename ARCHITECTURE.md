@@ -354,7 +354,8 @@ endpoint returns transaction-level results labelled `"mode": "transactions"`: th
 Start (upload / demo, ingestion report, coverage) → Overview (figures, risk distribution, patterns,
 reviewed-not-flagged) → Queue → **Investigation**: score breakdown, role + indicator, findings with
 evidence chains, timeline, graph (raw network or trace mode with role shapes), transactions,
-"Why not flagged?", case card, Confirm / Clear with audit history. Light and dark themes from
+"Why not flagged?", case card, Confirm / Clear with audit history. A read-only "Method" panel (score card and
+case summary) shows the running configuration from `/api/config`. Light and dark themes from
 semantic design tokens; status never conveyed by colour alone.
 
 ---

@@ -1,11 +1,24 @@
 # MuleTrace — Status
 
-_Updated after: T25 case money-flow summary (no detection change). V1 baseline: tag `v1.0.0-finalized`._
+_Updated after: T26 method panel (no detection change). V1 baseline: tag `v1.0.0-finalized`._
 
 ## Complete
-- T0–T25 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
+- T0–T26 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## T26 — method panel (no detection change)
+- Gap: `/api/config` (thresholds, points, caps, severity cut-offs, engine, hash) was not shown anywhere.
+- "Method" button in a footer row of the account score card and in the Case page summary header opens a modal
+  `<dialog>` (Escape and backdrop close it, focus returns to the button): severity, score points and caps, pass-through
+  strength tiers, pattern thresholds, money tracing, false-positive defences; engine and configuration hash in the
+  footer (the same hash as the page footer and the export file name). `lib/method.ts` only formats the configuration
+  it is given; nothing is editable and `/api/config` accepts GET only.
+- Score card header unchanged (a button there wrapped the title in the 340 px column).
+- Tests: `test_method_config.py` (3: configuration and hash = running configuration and dataset view, fallback engine,
+  POST / PUT / PATCH / DELETE → 405) + 1 frontend test (every figure checked against a non-default configuration).
+- Engine + API snapshot (every pre-existing endpoint, every account and case) byte-identical to `v1.0.0-finalized` on
+  demo and the 50k benchmark, flow and fallback engines, after T25 + T26.
 
 ## T25 — case money-flow summary (no detection change)
 - Gap: the Case page showed members, graph and timeline, but how money entered, moved and left had to be read off
@@ -203,9 +216,9 @@ on demo, fallback engine and the 50k benchmark.
 - ARCHITECTURE §6.1/§7.1/§7.2/§12 synced with implemented clarifications (no behaviour change).
 
 ## Tests
-- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **135 passed**.
-- `cd frontend; npm test` → **11 passed** (search race, evidence toggle, decision failure / reasons, trace merge guard,
-  status patch, link encoding, fan-out wrap, IST times, cases-list wording).
+- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **138 passed**.
+- `cd frontend; npm test` → **12 passed** (search race, evidence toggle, decision failure / reasons, trace merge guard,
+  status patch, link encoding, fan-out wrap, IST times, cases-list wording, method panel figures).
 - Ingestion edge cases; flow gate (conservation, determinism, shuffle, same-timestamp, expiry, pooled boundary,
   exact trace); dataset-wide conservation (every link, every account's forward/back trace at 2 and 8 hops);
   S1–S4, A1–A15, G1–G15; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; case network; fallback (G12); trace cap (G10);

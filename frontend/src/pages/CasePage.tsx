@@ -6,6 +6,7 @@ import { useApp, useLoad } from "../state";
 import { ErrorBox, SeverityBadge, Spinner, StatusBadge } from "../components/Badges";
 import { GraphFrame, type Highlight } from "../components/GraphView";
 import { Timeline } from "../components/Investigation";
+import { MethodButton } from "../components/MethodPanel";
 import { duration, moneyShort, ROLE_LABEL, timeRange } from "../format";
 import { flaggedFirst } from "../lib/members";
 import { accountPath } from "../lib/paths";
@@ -53,7 +54,7 @@ export default function CasePage() {
       {summary && summary.id === c.id && summary.lines.length > 0 && (
         <section className="card" aria-labelledby="case-summary-title">
           <div className="card-h"><h2 id="case-summary-title" className="card-t">Money-flow summary</h2>
-            <span className="text-xs text-muted">from the case's computed data</span></div>
+            <div className="flex items-center gap-2"><span className="text-xs text-muted">from the case's computed data</span><MethodButton /></div></div>
           <dl className="grid grid-cols-[minmax(0,1fr)] gap-x-4 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[84px_minmax(0,1fr)] sm:gap-y-2">
             {summary.lines.map((l) => (
               <Fragment key={l.kind}>

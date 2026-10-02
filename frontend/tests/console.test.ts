@@ -9,6 +9,7 @@ import { accountPath, casePath, queuePath } from "../src/lib/paths.ts";
 import { wrapColumns } from "../src/lib/layout.ts";
 import { auditTime, timeRange } from "../src/format.ts";
 import { progressText, severityMix } from "../src/lib/cases.ts";
+import { methodSections } from "../src/lib/method.ts";
 
 const hits = (...ids: string[]) => ids.map((id) => ({ id }));
 
@@ -132,4 +133,42 @@ test("cases list: severity mix and decision progress wording", () => {
     "4 of 4 flagged confirmed · 1 decision on not-flagged members");
   assert.equal(progressText({ flagged: 7, confirmed_flagged: 2, decided_not_flagged: 2 }),
     "2 of 7 flagged confirmed · 2 decisions on not-flagged members");
+});
+
+test("method panel: every figure comes from the configuration it is given", () => {
+  // unusual values, so a figure that is not read from the configuration cannot pass
+  const cfg = {
+    severity_high: 61, severity_medium: 37, cap_flow: 57, cap_circularity: 21, cap_identity: 19,
+    pts_relay: [34, 19], pts_hub: [24, 14], pts_receipt: [18, 9], pts_extra_base: 4, pts_repeated: 6,
+    repeated_min_episodes: 4, pts_chain: 11, chain_min_relays: 5, pts_corroborated: 23, corroborated_span: 2700,
+    pts_consolidation: 9, pts_round_trip: [17, 13], pts_identity_strong: 16, pts_identity_ip: 7, pts_identity_extra: 3,
+    tier_dwell: [1200, 18000, 172800], tier_conservation: [0.95, 0.85, 0.75],
+    hub_min_senders: 4, hub_min_receivers: 5, hub_burst: 14400, receipt_min_relays: 3,
+    receipt_strong_span: 10800, receipt_moderate_span: 172800, rt_max_hops: 7, rt_strong_span: 43200,
+    rt_strong_return: 0.55, rt_moderate_span: 129600, rt_moderate_return: 0.35,
+    cluster_min_size: [["device", 6], ["ip", 9], ["kyc", 8]], horizon: 172800, min_link: 1500, min_episode: 12000,
+    trace_max_hops: 9, pooled_min_counterparties: 44, pooled_min_span: 432000, relationship_days: 6,
+    relationship_history_share: 0.45, established_share: 0.85, infra_min_established: 7, infra_established_share: 0.65,
+    new_account_days: 28, origin_own_funds_share: 0.55, sink_forward_max: 0.15,
+  };
+  const s = Object.fromEntries(methodSections(cfg).map((x) => [x.title, Object.fromEntries(x.rows)]));
+  assert.deepEqual(s.Severity, { High: "score ≥ 61", Medium: "score 37–60", Low: "flagged, score below 37" });
+  const score = s["Score — evidence-strength index, max 97"];
+  assert.equal(score["Money flow (cap 57)"], "pass-through 34 / 19 · fan-in → fan-out 24 / 14 · layered receipt 18 / 9 (strong / moderate)");
+  assert.equal(score["Money-flow bonuses"], "+4 each further pattern · +6 repeated (≥ 4 episodes) · +11 relay chain (≥ 5 relays) · "
+    + "+23 corroborated layering (≥ 5 strong relays within 45 min) · +9 consolidation");
+  assert.equal(score["Circularity (cap 21)"], "circular flow 17 / 13 (strong / moderate)");
+  assert.equal(score["Shared identity (cap 19)"], "device or KYC 16 · IP only 7 · +3 each further attribute type");
+  assert.deepEqual(s["Pass-through strength"], { Strong: "held ≤ 20 min, ≥ 95% passed on", Moderate: "held ≤ 5 h, ≥ 85% passed on",
+    Weak: "held ≤ 2 d, ≥ 75% passed on — recorded, not scored" });
+  assert.equal(s.Patterns["Fan-in → fan-out"], "≥ 4 senders and ≥ 5 receivers within 4 h");
+  assert.equal(s.Patterns["Circular flow"], "≤ 7 hops: strong ≤ 12 h and ≥ 55% returned, moderate ≤ 1 d 12 h and ≥ 35%");
+  assert.equal(s.Patterns["Shared attributes"], "new or age-unknown accounts sharing a device (≥ 6), IP (≥ 9) or KYC (≥ 8)");
+  assert.equal(s["Money tracing"]["Smallest amounts"], "structure ignores links below ₹1,500 and episodes below ₹12,000");
+  assert.equal(s["False-positive defences"]["Pooled account"], "≥ 44 counterparties over ≥ 5 d; traced money stops there");
+  assert.equal(s["False-positive defences"].Sink, "forwards less than 15% of what it receives");
+  // read-only: the panel only formats what it receives
+  const frozen = Object.freeze(structuredClone(cfg));
+  assert.doesNotThrow(() => methodSections(frozen));
+  assert.deepEqual(frozen, cfg);
 });

@@ -8,6 +8,7 @@ import { reasonsFor, type DecisionStatus, type SubmitResult } from "../lib/decis
 import { flaggedFirst } from "../lib/members";
 import { accountPath, casePath } from "../lib/paths";
 import { RoleBadge, SeverityBadge, StatusBadge, TierBadge } from "./Badges";
+import { MethodButton } from "./MethodPanel";
 
 export const FAMILY_LABEL: Record<string, string> = { FLOW: "Money flow", CIRCULARITY: "Circularity", IDENTITY: "Shared identity" };
 const FAMILY_CAP: Record<string, number> = { FLOW: 60, CIRCULARITY: 20, IDENTITY: 20 };
@@ -61,6 +62,9 @@ export function ScoreCard({ d }: { d: AccountDetail }) {
           })}
         </div>
       )}
+      <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-1 text-xs text-muted">
+        <span>Rules, points and thresholds</span><MethodButton />
+      </div>
     </section>
   );
 }

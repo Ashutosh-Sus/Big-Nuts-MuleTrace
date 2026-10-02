@@ -30,6 +30,7 @@ Status (all tasks complete — see STATUS.md): `[ ]` todo · `[~]` in progress �
 | [x] T23 | Light-theme muted text contrast (§11 tokens): `--muted` 118 116 110 → 108 106 100 | T14 | every text token ≥ 4.5:1 on every background it sits on, both themes; dark unchanged |
 | [x] T24 | Cases list: `GET /api/cases` (§10) + `/cases` page; Overview "Suspicious cases" opens it | T16, T22 | lists exactly the cases with a flagged member (= Overview count); fields equal `/api/cases/{id}`; order severity → not fully confirmed → case order; empty state; fallback engine; analysis byte-identical; 375 px, both themes |
 | [x] T25 | Case money-flow summary: `GET /api/cases/{id}/summary` (§10) + "Money-flow summary" on the Case page | T22, T24 | every figure equals the case data (origins, entry = value from origins, sinks, roles, patterns, full case metrics even when the timeline is capped); no origin → "no likely origin identified"; no victim / loss / cause wording; fallback states what it does not trace; deterministic; existing case views unchanged |
+| [x] T26 | Method panel: read-only view of `GET /api/config` (§10, §11) from the score card and the case summary | T14, T25 | every figure read from the configuration (tested with non-default values); engine + hash = footer; no editable control, `/api/config` GET only; dialog: keyboard, Escape, focus return; 375 px, both themes |
 
 Test catalogue (expected outcomes live in `backend/tests/`):
 S1–S7 baseline · A1–A15 adversarial · G1–G15 audit regressions · R1–R6 relationship strength · conservation · determinism · shuffle.
