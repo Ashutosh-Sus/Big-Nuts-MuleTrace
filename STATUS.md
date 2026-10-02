@@ -1,11 +1,20 @@
 # MuleTrace — Status
 
-_Updated after: G15 case-role gating fix (§7.2, display only; core untouched). Nothing pushed._
+_Updated after: T23 light-theme muted text contrast (one design token; core untouched). Nothing pushed._
 
 ## Complete
-- T0–T22 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
+- T0–T23 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## T23 — light-theme muted text contrast (one token, no layout change)
+- Muted text (subtitles, labels, table headers, footers, hints; ~65 uses) was 4.25:1 on the page background and
+  4.02:1 on sunken panels in light theme — below 4.5:1 for small text. Every other text / background token pair
+  in both themes already passed.
+- Light `--muted` 118 116 110 → 108 106 100, the smallest step clearing 4.5:1 on page, surface, raised and
+  sunken (now 4.91 / 5.27 / 5.41 / 4.66; on the accent tint 3.9 → 4.51). Dark theme unchanged (≥ 4.79).
+- Running app, light theme: all 397 muted-text elements across Overview, Queue, Not flagged, Data, two account
+  pages and two case pages measure ≥ 4.8:1 against their actual (composited) backgrounds.
 
 ## Fixed — G15 case roles for unflagged cases (§7.2, display only)
 - Defect: `GET /api/cases/{id}` returned case roles, origins and value from origins for a case with no flagged
