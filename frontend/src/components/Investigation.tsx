@@ -191,7 +191,7 @@ export function DispositionPanel({ d, busy, onDecide }: {
             <button key={r} className="chip" onClick={() => setNote(r)}>{r}</button>))}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn border-high bg-high text-white hover:bg-high-ink" disabled={busy || status === "CONFIRMED"}
+          <button className="btn border-high-fill bg-high-fill text-on-high hover:bg-high-ink" disabled={busy || status === "CONFIRMED"}
             onClick={() => { onDecide("CONFIRMED", note); setNote(""); }}><ShieldAlert size={15} /> Confirm</button>
           <button className="btn border-good bg-good-soft text-good-ink hover:bg-good/20" disabled={busy || status === "CLEARED"}
             onClick={() => { onDecide("CLEARED", note); setNote(""); }}><ShieldCheck size={15} /> Clear</button>

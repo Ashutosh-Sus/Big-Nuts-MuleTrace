@@ -114,6 +114,8 @@ export default function GraphView({ data, highlight, theme, showIdentity, onSele
           "text-background-padding": "1px", "font-family": "system-ui, Segoe UI, sans-serif",
         } },
         { selector: "edge.suspicious", style: { "line-color": t.high, "target-arrow-color": t.high, color: t.ink } },
+        // other transactions differ by line style and arrowhead too, not by colour alone (§11)
+        { selector: "edge.plain", style: { "line-style": "dotted", "target-arrow-fill": "hollow" } },
         { selector: "edge.traced", style: { "line-color": t.trace, "target-arrow-color": t.trace, "line-style": "solid",
           "target-arrow-shape": "triangle-backcurve", "arrow-scale": 1.1, color: t.ink } },
         { selector: "edge.identity", style: { "line-color": t.ident, "line-style": "dashed", "line-dash-pattern": [5, 4],
@@ -216,9 +218,9 @@ export function GraphLegend({ mode }: { mode: string }) {
         <span className="flex items-center gap-1"><span className="inline-block h-[3px] w-6 bg-trace" /> computed flow link (FIFO attribution)</span>
       ) : (
         <>
-          <span className="flex items-center gap-1"><span className="inline-block h-[3px] w-6 bg-high" /> suspicious transactions</span>
-          <span className="flex items-center gap-1"><span className="inline-block h-[2px] w-6" style={{ background: "rgb(var(--edge))" }} /> other transactions</span>
-          <span className="flex items-center gap-1"><span className="inline-block w-6 border-t-2 border-dashed border-ident" /> shared attribute</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-[3px] w-6 bg-high" /> suspicious transactions (solid)</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-6 border-t-2 border-dotted" style={{ borderColor: "rgb(var(--edge))" }} /> other transactions (dotted)</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-6 border-t-2 border-dashed border-ident" /> shared attribute (dashed)</span>
         </>
       )}
       <span>double border = confirmed · faded = cleared</span>

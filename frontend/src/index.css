@@ -18,9 +18,12 @@
   --accent: 22 101 120;
   --accent-ink: 16 82 98;
   --accent-soft: 223 237 240;
+  --on-accent: 255 255 255;
   --high: 208 59 59;
   --high-ink: 160 36 36;
   --high-soft: 251 229 227;
+  --high-fill: 208 59 59;
+  --on-high: 255 255 255;
   --medium: 230 152 0;
   --medium-ink: 133 86 0;
   --medium-soft: 252 240 212;
@@ -50,9 +53,12 @@
   --accent: 84 172 188;
   --accent-ink: 134 202 214;
   --accent-soft: 24 45 50;
+  --on-accent: 17 17 16;
   --high: 214 72 72;
   --high-ink: 255 160 153;
   --high-soft: 58 31 30;
+  --high-fill: 226 102 94;
+  --on-high: 17 17 16;
   --medium: 250 178 25;
   --medium-ink: 245 196 96;
   --medium-soft: 56 45 19;
@@ -83,7 +89,7 @@ body {
     @apply inline-flex items-center gap-1.5 rounded-md border border-line-strong bg-raised px-3 py-1.5 text-[13px]
       font-medium text-ink hover:bg-sunken disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
   }
-  .btn-primary { @apply bg-accent border-accent text-white hover:bg-accent-ink; }
+  .btn-primary { @apply bg-accent border-accent text-on-accent hover:bg-accent-ink; }
   .btn-ghost { @apply border-transparent bg-transparent hover:bg-sunken; }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5 text-xs text-ink2 bg-raised

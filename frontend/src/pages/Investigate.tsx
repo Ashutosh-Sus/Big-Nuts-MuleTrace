@@ -135,7 +135,7 @@ export default function Investigate() {
                 {([["network", "Network", Network], ["back", "Where money came from", ArrowLeftToLine],
                   ["fwd", "Where money went", ArrowRightToLine]] as const).map(([m, label, Icon]) => (
                   <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
-                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-medium ${mode === m ? "bg-accent text-white" : "text-ink2 hover:bg-sunken"}`}>
+                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-medium ${mode === m ? "bg-accent text-on-accent" : "text-ink2 hover:bg-sunken"}`}>
                     <Icon size={14} /> {label}</button>
                 ))}
               </div>

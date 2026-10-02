@@ -1,11 +1,23 @@
 # MuleTrace — Status
 
-_Updated after: targeted audit of T20–T23 + G15 (release-clean) and its one fix. Nothing pushed._
+_Updated after: dark-theme button contrast + graph edge encoding (quality fixes, display only). Nothing pushed._
 
 ## Complete
 - T0–T23 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## Quality fixes — dark-theme filled controls, graph edges without colour alone (§11)
+- Text on filled controls now comes from tokens: `--on-accent`, and `--high-fill` / `--on-high` for Confirm.
+  Light values equal what was rendered before (white text, same red), so light theme is unchanged. Dark theme:
+  near-black text on the accent fill (primary buttons, active graph-mode tab) 2.62 → 7.2:1; Confirm on a
+  slightly lighter red with near-black text 4.30 → 5.66:1 (`--high` itself unchanged: badges, nodes untouched).
+  No `text-white` left in the console.
+- Graph: other (non-suspicious) transaction edges are dotted with hollow arrowheads; suspicious edges solid with
+  filled arrows; shared-attribute links stay dashed without arrows; traced flow links unchanged. Legend names the
+  line styles. Graph data and the "Suspicious flows only" filter are unchanged.
+- Checked: every page, light + dark, desktop + 375 px — no text below 4.5:1, no overflow; filter on / off; Confirm
+  then Clear through the buttons (header, graph node, audit trail).
 
 ## Targeted audit — T20–T23 + G15
 - Released vs current backend on the demo data: 2 722 of 2 724 pre-existing API responses byte-identical; the
