@@ -248,8 +248,14 @@ on demo, fallback engine and the 50k benchmark.
   not-flagged accounts are listed on the Overview. Reset writes per-account RESET audit entries (append-only).
 
 ## Git
-- Local `main`, history rewritten to remove machine-local ignore entries; nothing pushed.
+- `main` = tag `v1.0.0-finalized` (`168094a`), pushed to origin: the V1 baseline and rollback point.
+- Branch `feat/cases-list` (local): T24 cases list, T25 case money-flow summary, T26 method panel on top of V1.
 - Machine-local exclusions live in `.git/info/exclude`, not in `.gitignore`.
+
+## Deferred (not built)
+- Case flow replay, printable case report, case CSV export, graph PNG export.
+- A "Cases" item in the header navigation (narrows the account search at 1000 px), case IDs as a queue column,
+  a link from the Case page back to the cases list.
 
 ## Do NOT change
 - Pipeline order, scoring table, tiers, qualification rules, pooled contract (ARCHITECTURE §2, §5–§8).
