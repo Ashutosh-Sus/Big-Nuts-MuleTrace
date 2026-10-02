@@ -72,9 +72,9 @@ export interface GraphData {
   aggregated_accounts?: number;
 }
 export interface CaseDetail {
-  id: string; members: { id: string; role: string; score: number; severity: Severity | null; flagged: boolean; status: string }[];
+  id: string; members: { id: string; role: string | null; score: number; severity: Severity | null; flagged: boolean; status: string }[];
   metrics: { accounts: number; active: number; transactions: number; start: number | null; end: number | null;
-    median_dwell_seconds: number | null; value_from_origins: number; value_moved: number };
+    median_dwell_seconds: number | null; value_from_origins: number | null; value_moved: number };
   families: string[]; origins: string[]; timeline: TxnRow[]; confirmed: number; flagged: number;
 }
 

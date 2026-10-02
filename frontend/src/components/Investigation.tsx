@@ -233,6 +233,7 @@ export function CaseCard({ c, focus }: { c: CaseDetail; focus: string }) {
         <div className="col-span-2 flex items-center gap-1.5 text-xs text-ink2">
           <CheckCircle2 size={13} className={c.confirmed ? "text-high" : "text-muted"} /> {c.confirmed} of {c.flagged} flagged members confirmed
         </div>
+        {c.flagged === 0 && <div className="col-span-2 text-xs text-muted">No member flagged — roles are not assigned.</div>}
       </div>
       <ul className="max-h-56 divide-y divide-line overflow-auto border-t border-line">
         {c.members.map((mem) => (
@@ -240,7 +241,7 @@ export function CaseCard({ c, focus }: { c: CaseDetail; focus: string }) {
             <Link to={`/account/${mem.id}`} className={`flex items-center justify-between gap-2 px-4 py-1.5 text-sm hover:bg-sunken ${mem.id === focus ? "bg-accent-soft/50" : ""}`}>
               <span className="font-mono text-[13px]">{mem.id}</span>
               <span className="flex items-center gap-1.5">
-                <span className="text-2xs text-muted">{ROLE_LABEL[mem.role] ?? mem.role}</span>
+                {mem.role && <span className="text-2xs text-muted">{ROLE_LABEL[mem.role] ?? mem.role}</span>}
                 {mem.status !== "OPEN" && <StatusBadge status={mem.status} />}
                 <SeverityBadge severity={mem.severity} />
               </span>

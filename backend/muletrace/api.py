@@ -358,15 +358,20 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
             raise HTTPException(404, f"Unknown case {case_id}")
         disp = state.dispositions()
         fams = sorted({f for m in c.members for f in an.results[m].families})
-        members = [{"id": m, "role": c.roles.get(m), "score": an.results[m].score,
+        # §7.2: a flow nobody was flagged for does not label its participants — case roles and origins only
+        # for a case with a flagged member; otherwise the per-account rule (pooled, cluster member) applies
+        labelled = c.id in an.flagged_cases
+        role_of = c.roles.get if labelled else an.role
+        members = [{"id": m, "role": role_of(m), "score": an.results[m].score,
                     "severity": an.results[m].severity, "flagged": an.results[m].flagged,
                     "status": disp.get(m, {}).get("status", "OPEN")} for m in c.members]
         role_order = {"ORIGIN": 0, "HUB": 1, "COLLECTOR": 2, "DISTRIBUTOR": 3, "RELAY": 4, "POOLED": 5,
                       "SINK": 6, "COUNTERPARTY": 7}
         members.sort(key=lambda m: (role_order.get(m["role"], 9), -m["score"], m["id"]))
         timeline = [txn_row(an, t) for t in sorted(c.edges, key=lambda t: (an.ds.txns[t].ts, t))]
-        return {"id": c.id, "members": members, "metrics": c.metrics, "families": fams,
-                "origins": c.origins, "timeline": timeline[:200],
+        metrics = c.metrics if labelled else {**c.metrics, "value_from_origins": None}
+        return {"id": c.id, "members": members, "metrics": metrics, "families": fams,
+                "origins": c.origins if labelled else [], "timeline": timeline[:200],
                 "confirmed": sum(1 for m in members if m["status"] == "CONFIRMED"),
                 "flagged": sum(1 for m in members if m["flagged"])}
 

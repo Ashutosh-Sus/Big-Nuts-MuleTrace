@@ -33,8 +33,9 @@ export default function CasePage() {
       <div>
         <h1 className="text-lg font-semibold">Case {c.id}</h1>
         <p className="text-sm text-muted">{m.accounts} accounts · {c.flagged} flagged · {c.confirmed} confirmed ·
-          {" "}{moneyShort(m.value_from_origins)} entered from likely origins · {m.start && m.end ? duration(m.end - m.start) : ""} window ·
-          {" "}median dwell {duration(m.median_dwell_seconds)}</p>
+          {" "}{m.value_from_origins != null ? <>{moneyShort(m.value_from_origins)} entered from likely origins</> : "value from origins —"} ·
+          {" "}{m.start && m.end ? duration(m.end - m.start) : ""} window · median dwell {duration(m.median_dwell_seconds)}</p>
+        {c.flagged === 0 && <p className="text-xs text-muted">No member flagged — roles are not assigned.</p>}
       </div>
       <section className="card">
         <div className="card-h flex-wrap">
@@ -72,7 +73,7 @@ export default function CasePage() {
                 <tr key={mem.id} onClick={() => toggle(mem.id)} aria-selected={picked === mem.id}
                   className={`cursor-pointer ${picked === mem.id ? "bg-accent-soft" : "hover:bg-sunken/70"}`}>
                   <td className="font-mono"><Link className="link" to={`/account/${mem.id}`} onClick={(e) => e.stopPropagation()}>{mem.id}</Link></td>
-                  <td>{ROLE_LABEL[mem.role] ?? mem.role}</td>
+                  <td>{mem.role ? ROLE_LABEL[mem.role] ?? mem.role : "—"}</td>
                   <td><SeverityBadge severity={mem.severity} score={mem.flagged ? mem.score : undefined} /></td>
                   <td><StatusBadge status={mem.status} /></td>
                 </tr>

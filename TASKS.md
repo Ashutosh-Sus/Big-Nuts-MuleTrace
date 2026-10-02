@@ -29,4 +29,4 @@ Status (all tasks complete — see STATUS.md): `[ ]` todo · `[~]` in progress �
 | [x] T22 | Case network graph: `GET /api/cases/{id}/network` (§10) + graph on the Case page (select member → its transactions, double-click → investigate) | T11, T16, T17 | nodes = case members, every case transaction on its edge, case roles; capped 80 with a connected drawn part; fallback engine; 375 px, both themes |
 
 Test catalogue (expected outcomes live in `backend/tests/`):
-S1–S7 baseline · A1–A15 adversarial · G1–G14 audit regressions · R1–R6 relationship strength · conservation · determinism · shuffle.
+S1–S7 baseline · A1–A15 adversarial · G1–G15 audit regressions · R1–R6 relationship strength · conservation · determinism · shuffle.

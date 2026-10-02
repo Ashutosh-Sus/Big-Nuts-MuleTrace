@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from muletrace.api import create_app, csv_safe
 from muletrace.config import DEFAULT
-from muletrace.demo_data import HERO, generate
+from muletrace.demo_data import DECOYS, HERO, generate
 
 
 @pytest.fixture()
@@ -290,3 +290,53 @@ def test_case_network_large_case_stays_connected(tmp_path):
     ids = {n["id"] for n in g["nodes"]}
     assert len(ids) == 80 and g["hidden_count"] == len(big["members"]) - 80
     assert connected(ids, g["edges"])
+
+
+def case_of(c, account):
+    cid = c.get(f"/api/accounts/{account}").json()["cases"][0]
+    return c.get(f"/api/cases/{cid}").json(), c.get(f"/api/cases/{cid}/network").json()
+
+
+@pytest.mark.parametrize("decoy", [DECOYS["PAYROLL"], DECOYS["NEAR_MISS"]])
+def test_g15_unflagged_case_assigns_no_roles(client, decoy):
+    """§7.2: a flow nobody was flagged for does not label its participants (payroll decoy, near miss)."""
+    detail, graph = case_of(client, decoy)
+    assert detail["flagged"] == 0 and not any(m["flagged"] for m in detail["members"])
+    assert all(m["role"] is None for m in detail["members"])
+    assert detail["origins"] == [] and detail["metrics"]["value_from_origins"] is None
+    assert {m["id"]: m["role"] for m in detail["members"]} == {n["id"]: n["role"] for n in graph["nodes"]}
+    # the account page agrees, and no possible-victim wording appears for any member
+    for m in detail["members"]:
+        acc = client.get(f"/api/accounts/{m['id']}").json()
+        assert acc["role"] == m["role"] and acc["indicator"]["status"] == "NOT_ASSESSED"
+    # everything else about the case is still reported
+    assert detail["metrics"]["transactions"] > 0 and detail["timeline"] and detail["metrics"]["value_moved"] > 0
+
+
+def test_g15_flagged_case_keeps_roles_origins_and_value(client):
+    detail, graph = case_of(client, HERO["M2"])
+    roles = {m["id"]: m["role"] for m in detail["members"]}
+    assert roles[HERO["V1"]] == roles[HERO["V2"]] == "ORIGIN" and roles[HERO["M2"]] == "HUB"
+    assert set(detail["origins"]) == {HERO["V1"], HERO["V2"]}
+    assert detail["metrics"]["value_from_origins"] > 0
+    assert roles == {n["id"]: n["role"] for n in graph["nodes"]}
+
+
+def test_g15_pooled_member_of_unflagged_case_still_shows_pooled(tmp_path):
+    s = Scenario("g15p").background()
+    s.account("MERCH", created=at(-900))
+    for d in range(12):
+        for k in range(8):
+            s.tx(f"BUY{d}{k}", "MERCH", 900 + 50 * k, at(d, 10, k * 5))
+        s.tx("MERCH", "MERCH-BANK", 0.95 * sum(900 + 50 * k for k in range(8)), at(d, 22))
+    s.tx("ORIG", "ISO", 200_000, at(12, 11, 0))         # one isolated pass-through into the merchant
+    s.tx("ISO", "MERCH", 198_000, at(12, 11, 10))
+    c = TestClient(create_app(db_path=tmp_path / "p.db", autoload_demo=False))
+    assert c.post("/api/datasets", files={"file": ("p.csv", s.csv_bytes(), "text/csv")}).status_code == 200
+    detail, graph = case_of(c, "ISO")
+    roles = {m["id"]: m["role"] for m in detail["members"]}
+    assert detail["flagged"] == 0 and "MERCH" in roles
+    assert roles["MERCH"] == "POOLED"
+    assert all(r is None for a, r in roles.items() if a != "MERCH")
+    assert detail["origins"] == [] and detail["metrics"]["value_from_origins"] is None
+    assert roles == {n["id"]: n["role"] for n in graph["nodes"]}

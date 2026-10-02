@@ -1,11 +1,25 @@
 # MuleTrace — Status
 
-_Updated after: T22 case network graph (build phase after release; core untouched). Nothing pushed._
+_Updated after: G15 case-role gating fix (§7.2, display only; core untouched). Nothing pushed._
 
 ## Complete
 - T0–T22 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## Fixed — G15 case roles for unflagged cases (§7.2, display only)
+- Defect: `GET /api/cases/{id}` returned case roles, origins and value from origins for a case with no flagged
+  member, so the "Connected case" card and the Case page labelled participants of flows nobody was flagged for
+  (demo: payroll AC7100 "Distributor", its employees "Sink", AC7000 "Likely origin"; near miss AC6101 "Relay",
+  AC6100 "Likely origin") while the account header correctly showed no role. Dated from T16; detection unaffected.
+- Fix: for a case without a flagged member the endpoint uses the per-account rule (`Analysis.role`: pooled →
+  POOLED, otherwise none inside such a case), `origins` = [] and `value_from_origins` = null; members are then
+  ordered by score (the old role ordering would itself reveal origins). Flagged cases byte-identical (demo
+  CASE-02/03/04 compared before/after); no other field of an unflagged case changed.
+- UI: case card and Case page show "—" for value from origins and "No member flagged — roles are not assigned."
+- Tests (4, `test_g15_*`): payroll and near-miss cases (no roles / origins / value, account page and case graph
+  agree, no indicator), hero case keeps roles + origins + value and matches the graph, pooled member of an
+  unflagged case still POOLED. Three fail on the pre-fix code.
 
 ## T22 — case network graph (no detection change)
 - Gap: the Case page had members and a timeline but no picture of the whole case.
@@ -69,10 +83,10 @@ _Updated after: T22 case network graph (build phase after release; core untouche
 - ARCHITECTURE §6.1/§7.1/§7.2/§12 synced with implemented clarifications (no behaviour change).
 
 ## Tests
-- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **101 passed**.
+- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **105 passed**.
 - Ingestion edge cases; flow gate (conservation, determinism, shuffle, same-timestamp, expiry, pooled boundary,
   exact trace); dataset-wide conservation (every link, every account's forward/back trace at 2 and 8 hops);
-  S1–S4, A1–A15, G1–G14; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; case network; fallback (G12); trace cap (G10).
+  S1–S4, A1–A15, G1–G15; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; case network; fallback (G12); trace cap (G10).
 
 ## Performance (50 000 rows, 4 000 accounts)
 - Ingestion 0.6–0.9 s · analysis 1.8–2.4 s · upload endpoint 3.4 s · summary 0.35 s (61 ms cached)
