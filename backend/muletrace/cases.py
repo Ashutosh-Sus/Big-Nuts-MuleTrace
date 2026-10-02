@@ -132,7 +132,7 @@ def build(ds: Dataset, fg: FlowGraph, raw: dict[str, dict], identity_signals: di
         s_act, r_act = tx.sender in active_set, tx.receiver in active_set
         if not (s_act or r_act):
             continue
-        if not (s_act and r_act) and ds.relationship(tx.sender, tx.receiver, tx.ts) == ESTABLISHED:
+        if not (s_act and r_act) and ds.relationship_of(tx) == ESTABLISHED:
             continue
         edges.append(t)
 
@@ -262,7 +262,7 @@ def _origin_funded(ds: Dataset, fg: FlowGraph, acc_id: str, outs: list[int], act
         for lid in fg.by_out.get(o, []):
             link = fg.links[lid]
             src = txns[link.in_txn]
-            if src.sender not in active and ds.relationship(src.sender, acc_id, src.ts) == ESTABLISHED:
+            if src.sender not in active and ds.relationship_of(src) == ESTABLISHED:
                 established += link.amount
     covered = all(txns[o].s_bal_before is not None and txns[o].s_bal_before >= txns[o].amount for o in outs)
     return (own >= cfg.origin_own_funds_share * total

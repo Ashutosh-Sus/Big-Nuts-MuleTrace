@@ -26,4 +26,4 @@ Status (all tasks complete — see STATUS.md): `[ ]` todo · `[~]` in progress �
 | [x] T19 | `scripts/evaluate.py` (only if organiser data carries labels) | T10 | precision/recall per pattern |
 
 Test catalogue (expected outcomes live in `backend/tests/`):
-S1–S7 baseline · A1–A15 adversarial · G1–G13 audit regressions · conservation · determinism · shuffle.
+S1–S7 baseline · A1–A15 adversarial · G1–G14 audit regressions · R1–R6 relationship strength · conservation · determinism · shuffle.

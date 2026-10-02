@@ -165,15 +165,14 @@ def observations(a, analysis) -> list[dict]:
         if ep.mitigations and ep.tier is not None:
             before = TIER_NAMES[ep.tier]
             after = TIER_NAMES[ep.final_tier] if ep.final_tier is not None else "not reportable"
-            why = []
-            if "ESTABLISHED_FUNDING" in ep.mitigations:
-                why.append("the money came from counterparties with at least "
-                           f"{ds.cfg.relationship_days} days of prior history")
-            if "ESTABLISHED_PAYEES" in ep.mitigations:
-                why.append(f"it went to payees paid at least {ds.cfg.relationship_days} days earlier")
+            history = (f"an established history (payments older than {ds.cfg.relationship_days} days worth at "
+                       f"least {f.pct(ds.cfg.relationship_history_share)} of their recent volume)")
+            funding, payees = "ESTABLISHED_FUNDING" in ep.mitigations, "ESTABLISHED_PAYEES" in ep.mitigations
+            why = ("the money came from and went to counterparties" if funding and payees else
+                   "the money came from counterparties" if funding else "it went to payees")
             obs.append({"kind": "MITIGATED", "text": (
                 f"Pass-through episode on {f.time(ep.start)} ({f.money(ep.inflow)} in, {f.money(ep.outflow)} out) "
-                f"downgraded {before} → {after} because " + " and ".join(why) + "."), "episode": eid})
+                f"downgraded {before} → {after} because {why} with {history}."), "episode": eid})
 
     attr_label = {"device": "Device", "ip": "IP address", "kyc": "KYC identifier"}
     for g in analysis.infra_groups_of(a):

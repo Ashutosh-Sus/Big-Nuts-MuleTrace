@@ -51,8 +51,8 @@ def apply_mitigations(ds: Dataset, fg: FlowGraph, cases: CaseResult) -> None:
         if ep.tier is None or ep.kind == "window" and ds.accounts[ep.account].pooled:
             continue
         acc = ep.account
-        in_states = [(ds.relationship(txns[i].sender, acc, txns[i].ts), txns[i]) for i in ep.in_txns]
-        out_states = [(ds.relationship(acc, txns[o].receiver, txns[o].ts), txns[o]) for o in ep.out_txns]
+        in_states = [(ds.relationship_of(txns[i]), txns[i]) for i in ep.in_txns]
+        out_states = [(ds.relationship_of(txns[o]), txns[o]) for o in ep.out_txns]
         if ep.id in blocked_eps:
             ep.mitigation_blocked = "episode lies on a corroborated layering path"
             continue

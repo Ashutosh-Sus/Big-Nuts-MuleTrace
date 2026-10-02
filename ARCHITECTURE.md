@@ -1,4 +1,4 @@
-# MuleTrace — Architecture (frozen v1.2)
+# MuleTrace — Architecture (frozen v1.2, amendment v1.2.1: relationship strength §4)
 
 MuleTrace ingests a transaction CSV, builds an account graph, traces how money moves
 through it over time, and flags mule-network structures:
@@ -124,11 +124,24 @@ from the data (`INR ₹`, `USD $`, `EUR €`, `GBP £`, otherwise the code).
     (last − first seen) ≥ 14 days, else `NEW` (proxy, labelled);
   - otherwise `UNKNOWN`.
   *Establishment evidence is available* when any creation date exists or span ≥ 14 days.
-- **Relationship state** of an unordered counterparty pair at time *t*
-  (`first_contact` = earliest transaction between them):
-  - `ESTABLISHED` if `first_contact ≤ t − 7 d`;
-  - `NOVEL` if `first_contact > t − 7 d` and `t ≥ dataset_start + 7 d`;
+- **Relationship state** of an unordered counterparty pair for a payment *p* at time *t*
+  (v1.2.1 — weighted by money, not by contact):
+  - *matured* = total the pair exchanged (both directions) at or before `t − 7 d`;
+  - *recent* = total the pair exchanged after `t − 7 d`, up to and including *p*;
+  - `ESTABLISHED` if `matured > 0` and `matured ≥ RELATIONSHIP_HISTORY_SHARE (0.50) × recent`;
+  - `NOVEL` otherwise, once `t ≥ dataset_start + 7 d`;
   - `UNKNOWN` during the 7-day warm-up. UNKNOWN never suppresses and never satisfies a novelty test.
+
+  The question is "is this relationship genuinely established for this much money?", not "have these
+  accounts ever transacted?". Consequences: a ₹1,000 payment two weeks before a ₹3 L transfer does not
+  establish the relationship (relationship seeding); sixty ₹200 payments do not either (count is irrelevant);
+  splitting the transfer into pieces does not help (each piece is judged against the pair's whole recent
+  volume); padding sent inside the 7-day window raises *recent*, not *matured*. A salary that grew from
+  ₹82,000 to ₹1,25,000 is still established (ratio 0.66). 0.50 lets ordinary variation (bonus, raise, a
+  double payment) through and rejects order-of-magnitude jumps; an attacker must move at least half the
+  attack value through the pair a week in advance. Used by case edges (§7.1), ORIGIN funding (§7.2) and
+  mitigations (§7.4). The pooled window test (§5) keeps the contact-based state, as pooled logic is
+  unchanged. Tests: `test_relationship.py` R1–R6, G14.
 - **Pooled:** ≥ 50 distinct counterparties **and** active span ≥ 7 days. Descriptive only (§7.6).
 
 ---
@@ -349,9 +362,7 @@ semantic design tokens; status never conveyed by colour alone.
 - History-based mitigations need ≥ 7 days of data; the first 7 days are warm-up.
 - Cash withdrawals and other-bank legs are invisible; sinks are the edge of observable data.
 - Single currency per dataset.
-- **Prior victim relationship.** If a victim paid the first mule at least 7 days before the fraud, that
-  mule satisfies the ORIGIN rule (§7.2) exactly like a salary-funded victim (G4): it scores 0 and shows the
-  possible-victim indicator, the real victim drops out of the case, and a 3-relay rapid chain loses its
-  corroboration bonus (HIGH → MEDIUM). The rest of the chain and the cash-out account are still flagged and
-  remain one case. Separating the two cases needs a new rule (e.g. relationship history must be commensurate
-  with the new inflow) and is an open amendment, not part of v1.2.
+- **Prior relationship of substantial value.** Relationship seeding with small or many small payments is
+  closed (§4, v1.2.1). If a victim genuinely sent the first mule at least half the fraud's value at least
+  7 days earlier, the relationship is established and that mule reads as an origin, like a salary-funded
+  victim (G4); the rest of the chain and the cash-out are still flagged (R5, R6 tests).

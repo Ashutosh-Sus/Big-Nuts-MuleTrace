@@ -111,5 +111,7 @@ deterministically by `python scripts/make_demo.py`; **Data → Reset demo** rest
 - Accounts with ≥ 50 counterparties over ≥ 7 days are treated as pooled and are not traced through.
 - Cash withdrawals and other-bank legs are outside the data; sinks are the edge of what is visible.
 - One currency per dataset; no conversion.
-- If a victim paid the first mule at least 7 days before the fraud, that mule is read as the likely origin
-  of the flow (like a victim spending their salary); the rest of the chain and the cash-out are still flagged.
+- A relationship counts as established only when payments older than 7 days amount to at least half of what
+  the pair moved in the last 7 days; a token payment weeks earlier does not establish it. If a victim
+  genuinely sent the first mule half the fraud's value a week or more before, that mule reads as the likely
+  origin of the flow; the rest of the chain and the cash-out are still flagged.

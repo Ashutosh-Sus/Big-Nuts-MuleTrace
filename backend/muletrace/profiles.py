@@ -1,6 +1,7 @@
 """Stages 2–3: account profiles, establishment, relationships, pooled classification (ARCHITECTURE §4)."""
 from __future__ import annotations
 
+import bisect
 from dataclasses import dataclass, field
 
 from .config import DAY, Config
@@ -46,6 +47,9 @@ class Dataset:
     end: int
     first_contact: dict[tuple[str, str], int]
     establishment_evidence: bool
+    pair_ts: dict[tuple[str, str], list[int]] = field(default_factory=dict)
+    pair_idx: dict[tuple[str, str], list[int]] = field(default_factory=dict)
+    pair_cum: dict[tuple[str, str], list[int]] = field(default_factory=dict)   # prefix sums, leading 0
 
     @property
     def span(self) -> int:
@@ -62,6 +66,25 @@ class Dataset:
             return NOVEL
         return UNKNOWN
 
+    def relationship_of(self, t: Txn) -> str:
+        """State of the sender/receiver relationship for payment t, weighted by money (§4).
+
+        ESTABLISHED needs history older than relationship_days that is commensurate with the pair's
+        recent activity: matured volume >= relationship_history_share x volume moved in the last
+        relationship_days up to and including t. A tiny old payment, many tiny ones, or a large
+        transfer split into pieces cannot stand in for a real relationship."""
+        key = (t.sender, t.receiver) if t.sender <= t.receiver else (t.receiver, t.sender)
+        window = self.cfg.relationship_days * DAY
+        ts, cum = self.pair_ts[key], self.pair_cum[key]
+        m = bisect.bisect_right(ts, t.ts - window)
+        p = bisect.bisect_right(self.pair_idx[key], t.idx)
+        matured, recent = cum[m], cum[p] - cum[m]
+        if matured and matured >= self.cfg.relationship_history_share * recent:
+            return ESTABLISHED
+        if t.ts >= self.start + window:
+            return NOVEL
+        return UNKNOWN
+
     def sorted_accounts(self) -> list[Account]:
         return [self.accounts[k] for k in sorted(self.accounts)]
 
@@ -69,6 +92,9 @@ class Dataset:
 def build(txns: list[Txn], cfg: Config) -> Dataset:
     accounts: dict[str, Account] = {}
     first_contact: dict[tuple[str, str], int] = {}
+    pair_ts: dict[tuple[str, str], list[int]] = {}
+    pair_idx: dict[tuple[str, str], list[int]] = {}
+    pair_cum: dict[tuple[str, str], list[int]] = {}
 
     def acct(aid: str, ts: int) -> Account:
         a = accounts.get(aid)
@@ -100,12 +126,17 @@ def build(txns: list[Txn], cfg: Config) -> Dataset:
         key = (t.sender, t.receiver) if t.sender <= t.receiver else (t.receiver, t.sender)
         if key not in first_contact:
             first_contact[key] = t.ts
+            pair_ts[key], pair_idx[key], pair_cum[key] = [], [], [0]
+        pair_ts[key].append(t.ts)
+        pair_idx[key].append(t.idx)
+        pair_cum[key].append(pair_cum[key][-1] + t.amount)
 
     start = txns[0].ts if txns else 0
     end = txns[-1].ts if txns else 0
     any_created = any(a.created is not None for a in accounts.values())
     long_span = (end - start) >= cfg.establishment_span_days * DAY
-    ds = Dataset(txns, accounts, cfg, start, end, first_contact, any_created or long_span)
+    ds = Dataset(txns, accounts, cfg, start, end, first_contact, any_created or long_span,
+                 pair_ts, pair_idx, pair_cum)
 
     for a in accounts.values():
         a.in_txns.sort()

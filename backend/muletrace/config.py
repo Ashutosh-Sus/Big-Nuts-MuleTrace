@@ -58,6 +58,9 @@ class Config:
     new_account_days: int = 30
     establishment_span_days: int = 14
     relationship_days: int = 7
+    # a pair is ESTABLISHED for a payment only if its history older than relationship_days is at least
+    # this share of what the pair moved in the last relationship_days, that payment included (§4)
+    relationship_history_share: float = 0.50
     pooled_min_counterparties: int = 50
     pooled_min_span: int = 7 * DAY
 
