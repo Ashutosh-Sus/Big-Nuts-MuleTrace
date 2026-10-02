@@ -1,11 +1,22 @@
 # MuleTrace — Status
 
-_Updated after: T23 light-theme muted text contrast (one design token; core untouched). Nothing pushed._
+_Updated after: targeted audit of T20–T23 + G15 (release-clean) and its one fix. Nothing pushed._
 
 ## Complete
 - T0–T23 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## Targeted audit — T20–T23 + G15
+- Released vs current backend on the demo data: 2 722 of 2 724 pre-existing API responses byte-identical; the
+  two differences are the intended G15 corrections (CASE-01, CASE-05). No core, dependency or data file changed.
+- §7.2 checked on every case of demo (flow + fallback engines), a pooled-member scenario and the 50k benchmark
+  across case API, case graph, account header, indicator, observations, queue, search, network and trace views.
+- T21 export = `/api/queue` on 108 filter combinations; T22 graphs = case members / transactions / identity links.
+- One finding, fixed: `/reviewed` reason-chip counts used `opacity-70` (3.63:1 in light theme); removed, now
+  ≥ 7.28:1 light and ≥ 7.83:1 dark, no text on the page below 4.5:1 in either theme.
+- Noted, not changed (pre-existing in the released console, dark theme): white text on accent controls
+  (primary buttons, active graph-mode tab) 2.62:1; Confirm button 4.30:1.
 
 ## T23 — light-theme muted text contrast (one token, no layout change)
 - Muted text (subtitles, labels, table headers, footers, hints; ~65 uses) was 4.25:1 on the page background and

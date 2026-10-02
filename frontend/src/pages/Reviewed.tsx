@@ -76,7 +76,7 @@ export default function Reviewed() {
           {REASONS.filter((k) => data?.counts[k]).map((k) => (
             <button key={k} className={`chip ${kinds.includes(k) ? "chip-on" : ""}`} aria-pressed={kinds.includes(k)}
               onClick={() => toggleKind(k)}>
-              {OBS_LABEL[k] ?? k}<span className="num ml-1 opacity-70">{data?.counts[k] ?? 0}</span>
+              {OBS_LABEL[k] ?? k}<span className="num ml-1">{data?.counts[k] ?? 0}</span>
             </button>
           ))}
         </div>
