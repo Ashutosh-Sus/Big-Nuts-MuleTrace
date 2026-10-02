@@ -28,6 +28,7 @@ Status (all tasks complete — see STATUS.md): `[ ]` todo · `[~]` in progress �
 | [x] T21 | Queue CSV export `GET /api/export/queue.csv` (§10) + Queue page "Export CSV" carrying the current filters | T15, T10 | rows = `/api/queue` for the same filters (membership, order, score, severity); ₹ survives; decisions included; formula cells prefixed; group = one row; filename has dataset fingerprint + config hash |
 | [x] T22 | Case network graph: `GET /api/cases/{id}/network` (§10) + graph on the Case page (select member → its transactions, double-click → investigate) | T11, T16, T17 | nodes = case members, every case transaction on its edge, case roles; capped 80 with a connected drawn part; fallback engine; 375 px, both themes |
 | [x] T23 | Light-theme muted text contrast (§11 tokens): `--muted` 118 116 110 → 108 106 100 | T14 | every text token ≥ 4.5:1 on every background it sits on, both themes; dark unchanged |
+| [x] T24 | Cases list: `GET /api/cases` (§10) + `/cases` page; Overview "Suspicious cases" opens it | T16, T22 | lists exactly the cases with a flagged member (= Overview count); fields equal `/api/cases/{id}`; order severity → not fully confirmed → case order; empty state; fallback engine; analysis byte-identical; 375 px, both themes |
 
 Test catalogue (expected outcomes live in `backend/tests/`):
 S1–S7 baseline · A1–A15 adversarial · G1–G15 audit regressions · R1–R6 relationship strength · conservation · determinism · shuffle.

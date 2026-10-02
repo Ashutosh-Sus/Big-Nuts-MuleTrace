@@ -8,6 +8,7 @@ import { expandAction, mergeNetwork, withStatus } from "../src/lib/graphState.ts
 import { accountPath, casePath, queuePath } from "../src/lib/paths.ts";
 import { wrapColumns } from "../src/lib/layout.ts";
 import { auditTime, timeRange } from "../src/format.ts";
+import { progressText, severityMix } from "../src/lib/cases.ts";
 
 const hits = (...ids: string[]) => ids.map((id) => ({ id }));
 
@@ -121,4 +122,14 @@ test("time: audit entries and windows use the console's IST format", () => {
   assert.equal(timeRange(t, t + 3 * 3600 + 29 * 60), "25 Mar 10:05–13:34");
   assert.equal(timeRange(t, t + 2 * 86400), "25 Mar 10:05 – 27 Mar 10:05");
   assert.equal(timeRange(null, t), "—");
+});
+
+test("cases list: severity mix and decision progress wording", () => {
+  assert.equal(severityMix({ HIGH: 5, MEDIUM: 0, LOW: 4 }), "5 high · 4 low");
+  assert.equal(severityMix({ HIGH: 0, MEDIUM: 4, LOW: 0 }), "4 medium");
+  assert.equal(progressText({ flagged: 9, confirmed_flagged: 0, decided_not_flagged: 0 }), "0 of 9 flagged confirmed");
+  assert.equal(progressText({ flagged: 4, confirmed_flagged: 4, decided_not_flagged: 1 }),
+    "4 of 4 flagged confirmed · 1 decision on not-flagged members");
+  assert.equal(progressText({ flagged: 7, confirmed_flagged: 2, decided_not_flagged: 2 }),
+    "2 of 7 flagged confirmed · 2 decisions on not-flagged members");
 });

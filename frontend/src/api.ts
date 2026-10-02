@@ -79,6 +79,11 @@ export interface CaseDetail {
   families: string[]; origins: string[]; timeline: TxnRow[]; timeline_total: number; timeline_member: string | null;
   confirmed: number; confirmed_flagged: number; decided_not_flagged: number; flagged: number;
 }
+export interface CaseListItem {
+  id: string; severity: Severity; severity_counts: Record<Severity, number>; accounts: number; flagged: number;
+  origins: number; metrics: CaseDetail["metrics"]; families: string[]; confirmed: number; confirmed_flagged: number;
+  decided_not_flagged: number; fully_confirmed: boolean;
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public body?: any) { super(message); }
@@ -120,6 +125,7 @@ export const api = {
     req<GraphData>(`/api/accounts/${encodeURIComponent(id)}/network?` +
       new URLSearchParams({ hops: String(hops), suspicious_only: String(suspiciousOnly), min_amount: String(minAmount) })),
   trace: (id: string, dir: "fwd" | "back") => req<GraphData>(`/api/accounts/${encodeURIComponent(id)}/trace?dir=${dir}`),
+  cases: () => req<{ items: CaseListItem[]; total: number; unflagged_cases: number }>("/api/cases"),
   caseDetail: (id: string, member?: string | null) => req<CaseDetail>(`/api/cases/${encodeURIComponent(id)}` +
     (member ? `?member=${encodeURIComponent(member)}` : "")),
   caseNetwork: (id: string) => req<GraphData>(`/api/cases/${encodeURIComponent(id)}/network`),

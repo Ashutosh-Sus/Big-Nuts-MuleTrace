@@ -11,6 +11,7 @@ import Queue from "./pages/Queue";
 import DataPage from "./pages/DataPage";
 import Investigate from "./pages/Investigate";
 import CasePage from "./pages/CasePage";
+import Cases from "./pages/Cases";
 import Reviewed from "./pages/Reviewed";
 
 function Brand() {
@@ -132,6 +133,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={loaded ? <Overview /> : <Navigate to="/data" replace />} />
             <Route path="/queue" element={loaded ? <Queue /> : <Navigate to="/data" replace />} />
+            <Route path="/cases" element={loaded ? <Cases /> : <Navigate to="/data" replace />} />
             <Route path="/reviewed" element={loaded ? <Reviewed /> : <Navigate to="/data" replace />} />
             <Route path="/data" element={<DataPage />} />
             <Route path="/account/:id" element={<Investigate />} />

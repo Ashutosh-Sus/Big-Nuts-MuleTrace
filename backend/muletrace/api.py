@@ -370,6 +370,36 @@ def create_app(db_path: Path | str | None = None, cfg: Config = DEFAULT, autoloa
 
     app.get("/api/accounts/{account:path}")(account_detail)
 
+    @app.get("/api/cases")
+    def case_list():
+        """The cases that contain a flagged account (the Overview "Suspicious cases" count), as a read-only view
+        of the analysis. Severity is the highest severity among the case's flagged members (no case score);
+        order: that severity, cases whose flagged members are not all confirmed first, then case order."""
+        an = state.require()
+        disp = state.dispositions()
+        sev_rank = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+        items = []
+        for pos, c in enumerate(an.cases.cases):
+            if c.id not in an.flagged_cases:
+                continue
+            status = {m: disp.get(m, {}).get("status", "OPEN") for m in c.members}
+            flagged = [m for m in c.members if an.results[m].flagged]
+            confirmed_flagged = sum(1 for m in flagged if status[m] == "CONFIRMED")
+            items.append((pos, {
+                "id": c.id,
+                "severity": min((an.results[m].severity for m in flagged), key=sev_rank.get),
+                "severity_counts": {s: sum(1 for m in flagged if an.results[m].severity == s) for s in sev_rank},
+                "accounts": len(c.members), "flagged": len(flagged), "origins": len(c.origins),
+                "metrics": c.metrics, "families": sorted({f for m in c.members for f in an.results[m].families}),
+                "confirmed": sum(1 for m in c.members if status[m] == "CONFIRMED"),
+                "confirmed_flagged": confirmed_flagged,
+                "decided_not_flagged": sum(1 for m in c.members if not an.results[m].flagged and status[m] != "OPEN"),
+                "fully_confirmed": confirmed_flagged == len(flagged),
+            }))
+        items.sort(key=lambda pi: (sev_rank[pi[1]["severity"]], pi[1]["fully_confirmed"], pi[0]))
+        return {"items": [i for _, i in items], "total": len(items),
+                "unflagged_cases": len(an.cases.cases) - len(items)}
+
     @app.get("/api/cases/{case_id}")
     def case_detail(case_id: str, member: str | None = None):
         an = state.require()

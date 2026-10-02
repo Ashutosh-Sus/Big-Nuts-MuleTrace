@@ -9,14 +9,15 @@ import { accountPath, queuePath } from "../lib/paths";
 const SEV_ORDER: Severity[] = ["HIGH", "MEDIUM", "LOW"];
 const SEV_FILL: Record<Severity, string> = { HIGH: "bg-high", MEDIUM: "bg-medium", LOW: "bg-low" };
 
-function Tile({ label, value, sub, title }: { label: string; value: string; sub?: string; title?: string }) {
-  return (
-    <div className="card px-4 py-3" title={title}>
-      <div className="label">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight">{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
-    </div>
-  );
+function Tile({ label, value, sub, title, to }: { label: string; value: string; sub?: string; title?: string; to?: string }) {
+  const body = <>
+    {to ? <div className="label flex items-center justify-between gap-1">{label}<ArrowRight size={13} className="shrink-0" /></div>
+      : <div className="label">{label}</div>}
+    <div className="mt-1 text-2xl font-semibold tracking-tight">{value}</div>
+    {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
+  </>;
+  return to ? <Link to={to} className="card block px-4 py-3 hover:border-line-strong hover:bg-sunken/40" title={title}>{body}</Link>
+    : <div className="card px-4 py-3" title={title}>{body}</div>;
 }
 
 export default function Overview() {
@@ -42,7 +43,7 @@ export default function Overview() {
         <Tile label="Transactions analysed" value={k.transactions.toLocaleString()} sub={`${k.flow_links.toLocaleString()} computed flow links`} />
         <Tile label="Flagged accounts" value={String(k.flagged)} sub={`${((k.flagged / Math.max(1, k.accounts)) * 100).toFixed(1)}% of accounts`} />
         <Tile label="High severity" value={String(s.severity.HIGH)} />
-        <Tile label="Suspicious cases" value={String(k.cases)} sub="connected flows with a flagged member" />
+        <Tile label="Suspicious cases" value={String(k.cases)} sub="connected flows with a flagged member" to="/cases" />
         <Tile label="Exposure" value={moneyShort(k.exposure)} sub={`largest suspicious amount per flagged account, summed · ${moneyShort(k.value_total)} moved in all`}
           title="For each flagged account, the largest amount in its scored evidence; added up over the queue. Shown, never scored." />
       </div>

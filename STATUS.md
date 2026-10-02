@@ -1,11 +1,27 @@
 # MuleTrace — Status
 
-_Updated after: console QA remediation (B1–B14, graph readability, mobile, accessibility; no detection change). Nothing pushed._
+_Updated after: T24 cases list (no detection change). V1 baseline: tag `v1.0.0-finalized`._
 
 ## Complete
-- T0–T23 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
+- T0–T24 (see TASKS.md): engine, API, analyst console (light + dark), docs, demo, start scripts, evaluation script.
 - Release audit: problem-statement parity through the UI, frozen v1.2 conformance, demo walk-through,
   conservation, performance, light/dark/mobile, prohibited-reference and secret scans, history cleanup.
+
+## T24 — cases list (no detection change)
+- Gap: cases were reachable only from an account's case card; the Overview "Suspicious cases" count led nowhere.
+- `GET /api/cases`: the cases in `flagged_cases` (the Overview count), read from the existing case objects and
+  account results. A case has no score of its own: "severity" is the highest severity among its flagged members.
+  Order: that severity, cases whose flagged members are not all confirmed first (a cleared member is not a
+  confirmation), then case order. `unflagged_cases` counts the connected flows without a flagged member (§7.2: not
+  listed, no roles).
+- `/cases` page: one row per case (ID, severity, flagged-member severities, decision progress, accounts / flagged,
+  value from likely origins or "no likely origin identified", window, median dwell, evidence families); the whole row
+  opens the Case page. Overview "Suspicious cases" tile links to it. Header navigation unchanged (an extra nav item
+  narrowed the account search at 1000 px from 173 to 95 px).
+- Tests: `test_cases_list.py` (6: list = Overview count, fields = case detail, order and re-order on decisions, row-order
+  independence, zero-flag dataset, fallback, 409 / 404) + 1 frontend wording test.
+- Engine + API snapshot (every pre-existing endpoint for every account and case) byte-identical to `v1.0.0-finalized`
+  on demo and the 50k benchmark, flow and fallback engines. 50k: `/api/cases` ≈ 4 ms.
 
 ## Console QA remediation (display, API views and state only — no detection change)
 A full product QA pass (every surface, demo / fallback / empty / malformed / unusual-ID / 50k data, light + dark,
@@ -169,9 +185,9 @@ on demo, fallback engine and the 50k benchmark.
 - ARCHITECTURE §6.1/§7.1/§7.2/§12 synced with implemented clarifications (no behaviour change).
 
 ## Tests
-- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **120 passed**.
-- `cd frontend; npm test` → **10 passed** (search race, evidence toggle, decision failure / reasons, trace merge guard,
-  status patch, link encoding, fan-out wrap, IST times).
+- `backend\.venv\Scripts\python -m pytest -q backend\tests` → **126 passed**.
+- `cd frontend; npm test` → **11 passed** (search race, evidence toggle, decision failure / reasons, trace merge guard,
+  status patch, link encoding, fan-out wrap, IST times, cases-list wording).
 - Ingestion edge cases; flow gate (conservation, determinism, shuffle, same-timestamp, expiry, pooled boundary,
   exact trace); dataset-wide conservation (every link, every account's forward/back trace at 2 and 8 hops);
   S1–S4, A1–A15, G1–G15; R1–R6 relationship strength; demo; API + persistence; observations filters; queue CSV export; case network; fallback (G12); trace cap (G10);

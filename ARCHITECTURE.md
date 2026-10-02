@@ -335,6 +335,7 @@ Every non-scored consideration is an **observation** (`NEAR_MISS`, `ISOLATED_REL
 | GET | `/api/accounts/{id}/transactions` | transactions |
 | GET | `/api/accounts/{id}/network` | k-hop transaction graph (≤ 80 nodes) |
 | GET | `/api/accounts/{id}/trace?dir=fwd\|back` | traced flow (≤ 50 nodes + aggregate node, ≤ 8 hops, pooled stops) |
+| GET | `/api/cases` | the cases that contain a flagged account (the Overview count): per case the highest severity among flagged members, severity counts, members, flagged, likely origins, metrics, evidence families, decision progress; ordered by that severity, cases not fully confirmed first, then case order. Read-only over the analysis |
 | GET | `/api/cases/{id}` | case members, roles, metrics, timeline |
 | GET | `/api/cases/{id}/network` | the whole case as one graph: members (case roles) and the case transactions between them, same contract as the account network; over 80 members, a connected part built from the case's most valuable money paths (likely origin → relays → cash-out), then the highest-scoring flagged neighbours |
 | GET | `/api/observations` | suppressed / near-miss activity |
